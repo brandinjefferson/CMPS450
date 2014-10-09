@@ -1,7 +1,10 @@
 (define interpret #f)
 
-(define top-level-env `( (+ ,+) (- ,-) (1 ,1) ))
+(define top-level-env `( (+ ,+) (- ,-) (1 ,1) )) ;Paired like (symbol, actual procedure)
 
+;Looks up the given id in the top-level-environment and returns its procedural value
+;identifiers are symbols, so they need a ' in front
+;Ex: (top-level-value '+) => #[procedure 15]
 (define top-level-value 
               (lambda (id) 
                   (let (( pair (assq id top-level-env)))
@@ -9,6 +12,7 @@
                             (cadr pair)
                             (id)))))
 
+;Adds pairing to the top-level-env
 (define set-top-level-value! 
               (lambda (id val) 
                   (let (( pair (assq id top-level-env)))
@@ -17,31 +21,35 @@
                             (set! top-level-env (cons (list id val) top-level-env))))))
 
 
+;Breaks an exp down to its core statements
+(define expand (lambda (exp) exp)) ;This is filler right now as well
 
-(define expand (lambda (exp) exp))
 
 ;replace the following "..."'s with "id))" to make them dummy functions
 ;"idl))" for new-env, so that you can load the code.
 
 (letrec
+;New-Env - Creates a new environment from given ids and vals?
    ((new-env
     (lambda (idl vals env)
-                ...
+                idl))
 
+;Lookup - searches for the id in the environment
    (lookup
     (lambda (id env)
-                ...
+                id))
   
+;Assign - places the (id val) pair into the env
    (assign
     (lambda (id val env)
-		...
+		id))	;Currently dummy functions
 
    (exec
     (lambda (exp env)
       (cond
            ((symbol? exp) (lookup exp env))
            ((number? exp) (lookup exp env))
-           ((pair? exp) 
+           ((pair? exp) 	;technically, everything's a pair of a car and cdr
              (case  (car exp)
                    ((quote) (cadr exp))
                    ((lambda)
@@ -71,4 +79,6 @@
 
 (set! interpret
       (lambda (exp)
-            (exec (expand exp) '()))))
+            (exec (expand exp) '())))) 
+            ;'() is the environment the grader will be giving
+            ;top-level-env is an example
