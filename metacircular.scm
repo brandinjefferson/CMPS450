@@ -22,14 +22,15 @@
 
 
 ;Breaks an exp down to its core statements
-(define expand (lambda (exp) exp)) ;This is filler right now as well
+;How do you read an expression and split it into pairs?
+(define expand (lambda (exp) exp) ;This is filler right now as well
 
 
 ;replace the following "..."'s with "id))" to make them dummy functions
 ;"idl))" for new-env, so that you can load the code.
 
 (letrec
-;New-Env - Creates a new environment from given ids and vals?
+;New-Env - Creates a new environment from given ids and vals? Or maybe this adds them to the given one.
    ((new-env
     (lambda (idl vals env)
                 idl))
@@ -39,7 +40,7 @@
     (lambda (id env)
                 id))
   
-;Assign - places the (id val) pair into the env
+;Assign - Makes a symbol = value?
    (assign
     (lambda (id val env)
 		id))	;Currently dummy functions
