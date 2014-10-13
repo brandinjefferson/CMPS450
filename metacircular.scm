@@ -23,7 +23,17 @@
 
 ;Breaks an exp down to its core statements
 ;How do you read an expression and split it into pairs?
-(define expand (lambda (exp) exp) ;This is filler right now as well
+(define expand (lambda (exp) 
+    (cond 
+        ((eqv? (car exp) 'cond) (<sequence>));conditional for cond
+        ((eqv? (car exp) 'case) (<sequence>))
+        ((eqv? (car exp) 'and) (<seq>))
+        ((eqv? (car exp) 'or) (<seq>))
+        ((eqv? (car exp) 'let) (<seq>))
+        ((eqv? (car exp) 'let*) (<seq>))
+        ((eqv? (car exp) 'letrec) (<seq>))
+        (else exp)
+    ))
 
 
 ;replace the following "..."'s with "id))" to make them dummy functions
