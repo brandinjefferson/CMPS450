@@ -20,12 +20,19 @@
                             (id)
                             (set! top-level-env (cons (list id val) top-level-env))))))
 
-
+;----Current Idea
+;(define expression '()) and cons it with the broken down statements
+;Worked with an if statement and its clauses
+;Possible issues: resetting the list after each use
 ;Breaks an exp down to its core statements
 ;How do you read an expression and split it into pairs?
 (define expand (lambda (exp) 
     (cond 
-        ((eqv? (car exp) 'cond) (<sequence>));conditional for cond
+        ((eqv? (car exp) 'cond) 
+        	(let* ((e1 (cadr exp)) 
+        		(cond
+        			((eqv? (cdr e1) '()) (<or sequence>)) ;if the cdr is empty, 'or' cond
+        			(else <normal sequence>))	;else, normal cond
         ((eqv? (car exp) 'case) (<sequence>))
         ((eqv? (car exp) 'and) (<seq>))
         ((eqv? (car exp) 'or) (<seq>))
