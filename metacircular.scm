@@ -27,34 +27,23 @@
 ;Possible issues: resetting the list after each use
 ;Breaks an exp down to its core statements
 ;How do you read an expression and split it into pairs?
-(define expand (lambda (exp) 
-    (if (not (null? exp))
-    (cond
-        ((eqv? (car exp) 'cond) 
-            (if (not (null? (cdr (cadr exp)))) ;if sequence exists
-                ;(cond <t> <seq>)
-                (if (null? (caddr exp))
-                    (cons 'if (list (caadr exp) (cons 'begin (cdr (cadr exp))))) 
-                    (append (list 'if (caadr exp) (cons 'begin (cdr (cadr exp)))) (expand (list 'cond (cddr exp)))))
-            ;else (cond (<t>) <clause> ...)
-            (expand (list 'or (caadr exp) (cons 'cond (cddr exp)))))
-            )
-        (else (expand (cdr exp)))))))
+(define expand (lambda (exp) (helper exp '())))
 
-;No good right now
-(define expand (lambda (exp) (begin 
-    (if (and (not (pair? exp)) (eqv? (car '())) (eqv? (cdr '()))) 
-        exp)
-    (let* ((e (memq 'cond exp))) 
-        (if (pair? e) 
-            (if (not (eqv? (cdr (cadr exp)) '())) ;a sequence exists
+(define helper (lambda (e1 e2)
+    (if (equal? e1 '())
+        e2
+    (cond
+        ((eqv? (car e1) 'cond)
+            (if (not (null? (cdr (cadr e1)))) ;if sequence exists
                 ;(cond <t> <seq>)
-                (let* ((seq (cons 'begin (cdr (cadr e)))) (clause1 (list (caadr e) seq))) 
-                    (if (eqv? (caddr e) '()) (cons 'if clause1) (expand (list 'if (caadr e) seq (cons 'cond (cddr e)))))) 
-            ;else (cond (<t>) <clause> ...)
-            (expand (list 'or (caadr e) (cons 'cond (cddr e)))))
-        exp)
-        ))))
+                (if (null? (cddr e1)) ;Then this is the last cond
+                    (if (null? e2) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))))) (append e2 (list (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
+                    (helper (cons 'cond (cddr e1)) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
+                ;else (cond (<t>) <clause> ...)
+                (helper (cons 'cond (cddr e1)) (append e2 (list 'or (caadr exp) (cons 'begin (cdr (cadr e1)))))))
+            )
+        (else (helper (cdr e1) (append e2 (car e1))))))))
+
 
 ;replace the following "..."'s with "id))" to make them dummy functions
 ;"idl))" for new-env, so that you can load the code.
