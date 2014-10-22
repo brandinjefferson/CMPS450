@@ -20,6 +20,7 @@
                             (id)
                             (set! top-level-env (cons (list id val) top-level-env))))))
 
+;Test - (cond ((eqv? 2 2) (+ 1 2)) ((eqv? 1 1) (+ 1 1)))
 ;----Current Idea
 ;(define expression '()) and cons it with the broken down statements
 ;Worked with an if statement and its clauses
@@ -27,21 +28,33 @@
 ;Breaks an exp down to its core statements
 ;How do you read an expression and split it into pairs?
 (define expand (lambda (exp) 
-    (cond 
+    (if (not (null? exp))
+    (cond
         ((eqv? (car exp) 'cond) 
-        	(let* ((e1 (cadr exp)) 
-        		(cond
-        			((eqv? (cdr e1) '()) (<or sequence>)) ;if the cdr is empty, 'or' cond
-        			(else <normal sequence>))	;else, normal cond
-        ((eqv? (car exp) 'case) (<sequence>))
-        ((eqv? (car exp) 'and) (<seq>))
-        ((eqv? (car exp) 'or) (<seq>))
-        ((eqv? (car exp) 'let) (<seq>))
-        ((eqv? (car exp) 'let*) (<seq>))
-        ((eqv? (car exp) 'letrec) (<seq>))
-        (else exp)
-    ))
+            (if (not (null? (cdr (cadr exp)))) ;if sequence exists
+                ;(cond <t> <seq>)
+                (if (null? (caddr exp))
+                    (cons 'if (list (caadr exp) (cons 'begin (cdr (cadr exp))))) 
+                    (append (list 'if (caadr exp) (cons 'begin (cdr (cadr exp)))) (expand (list 'cond (cddr exp)))))
+            ;else (cond (<t>) <clause> ...)
+            (expand (list 'or (caadr exp) (cons 'cond (cddr exp)))))
+            )
+        (else (expand (cdr exp)))))))
 
+;No good right now
+(define expand (lambda (exp) (begin 
+    (if (and (not (pair? exp)) (eqv? (car '())) (eqv? (cdr '()))) 
+        exp)
+    (let* ((e (memq 'cond exp))) 
+        (if (pair? e) 
+            (if (not (eqv? (cdr (cadr exp)) '())) ;a sequence exists
+                ;(cond <t> <seq>)
+                (let* ((seq (cons 'begin (cdr (cadr e)))) (clause1 (list (caadr e) seq))) 
+                    (if (eqv? (caddr e) '()) (cons 'if clause1) (expand (list 'if (caadr e) seq (cons 'cond (cddr e)))))) 
+            ;else (cond (<t>) <clause> ...)
+            (expand (list 'or (caadr e) (cons 'cond (cddr e)))))
+        exp)
+        ))))
 
 ;replace the following "..."'s with "id))" to make them dummy functions
 ;"idl))" for new-env, so that you can load the code.
