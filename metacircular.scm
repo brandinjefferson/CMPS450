@@ -30,7 +30,7 @@
 (define expand (lambda (exp) (helper exp '())))
 
 (define helper (lambda (e1 e2)
-    (if (equal? e1 '())
+    (if (or (equal? e1 '()) (not (pair? e1)) (equal? e1 e2))
         e2
     (cond
         ((eqv? (car e1) 'cond)
@@ -40,9 +40,16 @@
                     (if (null? e2) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))))) (append e2 (list (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
                     (helper (cons 'cond (cddr e1)) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
                 ;else (cond (<t>) <clause> ...)
-                (helper (cons 'cond (cddr e1)) (append e2 (list 'or (caadr exp) (cons 'begin (cdr (cadr e1)))))))
-            )
-        (else (helper (cdr e1) (append e2 (car e1))))))))
+                (helper (cons 'cond (cddr e1)) (append e2 (list 'or (caadr exp) (cons 'begin (cdr (cadr e1))))))))
+        ((eqv? (car e1) 'and) 
+            (if (not (null? (cdr e1)))        ;(and <t1>)
+                (if (not (null? (cddr e1)))   ;(and <t1> <t2> ...)
+                    (append e2 (list 'let (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (list 'and (cddr e1)) e2))) (list 'if 'x '(thunk) 'x)))
+                    ;else return <t1>
+                    (append e2 (helper (cdr e1) e2)))
+                (append e2 '#t))
+        )
+        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (append e2 (car e1))))))))
 
 
 ;replace the following "..."'s with "id))" to make them dummy functions
