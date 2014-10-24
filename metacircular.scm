@@ -44,11 +44,17 @@
         ((eqv? (car e1) 'and) 
             (if (not (null? (cdr e1)))        ;(and <t1>)
                 (if (not (null? (cddr e1)))   ;(and <t1> <t2> ...)
-                    (append e2 (list 'let (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (list 'and (cddr e1)) e2))) (list 'if 'x '(thunk) 'x)))
+                    (append e2 (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'and (cddr e1)) e2)))) (list 'if 'x '(thunk) 'x)))
                     ;else return <t1>
                     (append e2 (helper (cdr e1) e2)))
-                (append e2 '#t))
-        )
+                (append e2 '#t)))
+		((eqv? (car e1) 'or) 
+            (if (not (null? (cdr e1)))        ;(or <t1>)
+                (if (not (null? (cddr e1)))   ;(or <t1> <t2> ...)
+                    (append e2 (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'or (cddr e1)) e2)))) (list 'if 'x 'x '(thunk))))
+                    ;else return <t1>
+                    (append e2 (helper (cdr e1) e2)))
+                (append e2 '#f)))
         (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (append e2 (car e1))))))))
 
 
