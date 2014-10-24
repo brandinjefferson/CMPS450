@@ -48,15 +48,30 @@
                     ;else return <t1>
                     (append e2 (helper (cdr e1) e2)))
                 (append e2 '#t)))
-		((eqv? (car e1) 'or) 
+        ((eqv? (car e1) 'or) 
             (if (not (null? (cdr e1)))        ;(or <t1>)
                 (if (not (null? (cddr e1)))   ;(or <t1> <t2> ...)
                     (append e2 (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'or (cddr e1)) e2)))) (list 'if 'x 'x '(thunk))))
                     ;else return <t1>
                     (append e2 (helper (cdr e1) e2)))
                 (append e2 '#f)))
-        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (append e2 (car e1))))))))
+        ((eqv? (car e1) 'case)
+             )
+        ((eqv? (car e1) 'let)
+            (append e2 (cons (list 'lambda (getvar (cadr e1) '()) (helper (caddr e1) '())) (getinit (cadr e1) '()))))
+        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (if (pair? (car e1)) 
+                                                                  (append e2 (car e1))
+                                                                  (append e2 (list (car e1))))))))))
 
+(define getvar (lambda (e1 e2) ;e1 = set of sequences
+                 (if (or (not (null? e1)))
+                     (getvar (cdr e1) (append e2 (list (caar e1))))
+                     e2)))
+
+(define getinit (lambda (e1 e2)
+                  (if (not (null? e1))
+                      (getinit (cdr e1) (append e2 (list(car(cdar e1)))))
+                      e2)))
 
 ;replace the following "..."'s with "id))" to make them dummy functions
 ;"idl))" for new-env, so that you can load the code.
