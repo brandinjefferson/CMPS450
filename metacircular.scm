@@ -40,7 +40,7 @@
                     (if (null? e2) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))))) (append e2 (list (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
                     (helper (cons 'cond (cddr e1)) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
                 ;else (cond (<t>) <clause> ...)
-                (helper (cons 'cond (cddr e1)) (append e2 (list 'or (caadr exp) (cons 'begin (cdr (cadr e1))))))))
+                (helper (cons 'cond (cddr e1)) (append e2 (list 'or (caadr e1) (cons 'begin (cdr (cadr e1))))))))
         ((eqv? (car e1) 'and) 
             (if (not (null? (cdr e1)))        ;(and <t1>)
                 (if (not (null? (cddr e1)))   ;(and <t1> <t2> ...)
@@ -56,9 +56,18 @@
                     (append e2 (helper (cdr e1) e2)))
                 (append e2 '#f)))
         ((eqv? (car e1) 'case)
-             )
+             (helper (list 'let (list (list 'key (cadr e1)) (casesequences (cddr e1) '() 1)) (list 'cond (list (caselists (cddr e1) '() 1)))) '()))  
         ((eqv? (car e1) 'let)
+         ;On cond portion, the cdr of the cadr is (), so debug this
             (append e2 (cons (list 'lambda (getvar (cadr e1) '()) (helper (caddr e1) '())) (getinit (cadr e1) '()))))
+        ((eqv? (car e1) 'let*)
+            (if (null? (cadr e1))
+                ;(let* () <body>)
+                (append e2 (list 'lambda '() (helper (cddr e1) '())))
+                ;(let* ((v1 init1) (v2 init2) ...) <body>)
+                (helper (list 'let (list (caadr e1)) (list 'let* (cdr (cadr e1)) (caddr e1))) e2)))
+        ((eqv? (car e1) 'letrec)
+             (helper (list (list 'let  (getvarrec (cadr e1) '())) (list 'let (getinitrec (cadr e1) '() 1)) (list 'begin (getcombos (cadr e1) '() 1) (helper (caddr e1) '()))) e2))
         (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (if (pair? (car e1)) 
                                                                   (append e2 (car e1))
                                                                   (append e2 (list (car e1))))))))))
@@ -70,9 +79,45 @@
 
 (define getinit (lambda (e1 e2)
                   (if (not (null? e1))
-                      (getinit (cdr e1) (append e2 (list(car(cdar e1)))))
+                      (if (pair? (car (cdar e1))) 
+                          (getinit (cdr e1) (append e2 (cons (helper (car (cdar e1)) '()) '())))
+                          (getinit (cdr e1) (append e2 (helper (list (car (cdar e1))) '()))))
                       e2)))
 
+(define getvarrec (lambda (e1 e2)
+                    (if (not (null? e1))
+                     (getvarrec (cdr e1) (append e2 (list (cons (caar e1) '(undefined)))))
+                     e2)))
+
+(define getinitrec (lambda (e1 e2 num)
+                     (if (not (null? e1))
+                         (if (pair? (car (cdar e1))) 
+                          (getinitrec (cdr e1) (append e2 (list `,(string-append "temp" (number->string num)) (cons (helper (list (car (cdar e1))) '()) '()))) (+ num 1))
+                          (getinitrec (cdr e1) (append e2 (list `,(string-append "temp" (number->string num)) (helper (list (car (cdar e1))) '()))) (+ num 1)))
+                      e2)))
+
+(define getcombos (lambda (e1 e2 num) 
+                    (if (not (null? e1))
+                        (getcombos (cdr e1) (append e2 (list 'set! (caar e1) `,(string-append "temp" (number->string num)))) (+ num 1))
+                        e2)))
+
+(define casesequences (lambda (e1 e2 num) 
+                        (if (null? e1)
+                            e2
+                            (if (eqv? (caar e1) 'else)
+                                (append e2 (list 'elsethunk (list 'lambda '() (helper (cdar e1) '()))))
+                                (casesequences (cdr e1) (append e2 (list (list `,(string-append "thunk" (number->string num))) (list 'lambda '() (helper (cdar e1) '())))) (+ num 1))))))
+
+(define caselists (lambda (e1 e2 num)
+                    (if (null? e1)
+                        e2
+                        (if (eqv? (caar e1) 'else)
+                            (append e2 (list (list (caar e1) (list 'elsethunk))))
+                            (caselists (cdr e1) (append e2 (list  (list 'memv 'key (caar e1)) (list (list `,(string-append "thunk" (number->string num)))))) (+ num 1)))))) 
+
+(define test '(case (* 2 3)
+  ((2 3 5 7) 'prime)
+  ((1 4 6 8 9) 'composite)))
 ;replace the following "..."'s with "id))" to make them dummy functions
 ;"idl))" for new-env, so that you can load the code.
 
