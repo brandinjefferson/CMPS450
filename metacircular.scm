@@ -1,6 +1,6 @@
 (define interpret #f)
 
-(define top-level-env `( (+ ,+) (- ,-) (1 ,1) )) ;Paired like (symbol, actual procedure)
+(define top-level-env `( (+ ,+) (- ,-) (1 ,1) (#f ,#f) (#t ,#t) (eqv? ,eqv?))) ;Paired like (symbol, actual procedure)
 
 ;Looks up the given id in the top-level-environment and returns its procedural value
 ;identifiers are symbols, so they need a ' in front
@@ -20,13 +20,7 @@
                             (id)
                             (set! top-level-env (cons (list id val) top-level-env))))))
 
-;Test - (cond ((eqv? 2 2) (+ 1 2)) ((eqv? 1 1) (+ 1 1)))
-;----Current Idea
-;(define expression '()) and cons it with the broken down statements
-;Worked with an if statement and its clauses
-;Possible issues: resetting the list after each use
-;Breaks an exp down to its core statements
-;How do you read an expression and split it into pairs?
+
 (define expand (lambda (exp) (helper exp '())))
 
 (define helper (lambda (e1 e2)
@@ -40,7 +34,7 @@
                     (if (null? e2) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))))) (append e2 (list (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
                     (helper (cons 'cond (cddr e1)) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
                 ;else (cond (<t>) <clause> ...)
-                (helper (cons 'cond (cddr e1)) (append e2 (list 'or (caadr e1) (cons 'begin (cdr (cadr e1))))))))
+                (helper (list 'or (caadr e1) (cons 'cond (cddr e1))) e2)))
         ((eqv? (car e1) 'and) 
             (if (not (null? (cdr e1)))        ;(and <t1>)
                 (if (not (null? (cddr e1)))   ;(and <t1> <t2> ...)
@@ -51,11 +45,12 @@
         ((eqv? (car e1) 'or) 
             (if (not (null? (cdr e1)))        ;(or <t1>)
                 (if (not (null? (cddr e1)))   ;(or <t1> <t2> ...)
-                    (append e2 (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'or (cddr e1)) e2)))) (list 'if 'x 'x '(thunk))))
+                    (append e2 (helper (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'or (cddr e1)) e2)))) (list 'if 'x 'x '(thunk))) e2))
                     ;else return <t1>
-                    (append e2 (helper (cdr e1) e2)))
+                    (append e2 (if (null? (cddr e1)) (helper (cadr e1) e2) (helper (cdr e1) e2))))
                 (append e2 '#f)))
         ((eqv? (car e1) 'case)
+         ;Requires debugging
              (helper (list 'let (list (list 'key (cadr e1)) (casesequences (cddr e1) '() 1)) (list 'cond (list (caselists (cddr e1) '() 1)))) '()))  
         ((eqv? (car e1) 'let)
          ;On cond portion, the cdr of the cadr is (), so debug this
@@ -86,7 +81,7 @@
 
 (define getvarrec (lambda (e1 e2)
                     (if (not (null? e1))
-                     (getvarrec (cdr e1) (append e2 (list (cons (caar e1) '(undefined)))))
+                     (getvarrec (cdr e1) (append e2 (list (cons (caar e1) '(undefined))))) ;could turn this into just (list (caar e1) 'undefined)?
                      e2)))
 
 (define getinitrec (lambda (e1 e2 num)
@@ -125,24 +120,28 @@
 ;New-Env - Creates a new environment from given ids and vals? Or maybe this adds them to the given one.
    ((new-env
     (lambda (idl vals env)
-                idl))
+                (if (null? idl)
+                    env
+                    (new-env (cdr idl) (cdr vals) (append env (list (car idl) (car vals)))))))
 
-;Lookup - searches for the id in the environment
+;Lookup - searches for the id in the environment and returns its value (cdr)
    (lookup
     (lambda (id env)
-                id))
+                (let ((pair (assq id env)))
+                  (if pair (cadr pair) id))))
   
 ;Assign - Makes a symbol = value?
    (assign
     (lambda (id val env)
-		id))	;Currently dummy functions
+      (let ((pair (list id val))) 
+        (append env (list pair)))))
 
    (exec
     (lambda (exp env)
       (cond
            ((symbol? exp) (lookup exp env))
            ((number? exp) (lookup exp env))
-           ((pair? exp) 	;technically, everything's a pair of a car and cdr
+           ((pair? exp) 	
              (case  (car exp)
                    ((quote) (cadr exp))
                    ((lambda)
@@ -172,6 +171,4 @@
 
 (set! interpret
       (lambda (exp)
-            (exec (expand exp) '())))) 
-            ;'() is the environment the grader will be giving
-            ;top-level-env is an example
+            (exec (expand exp) top-level-env)))) 
