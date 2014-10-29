@@ -50,8 +50,8 @@
                     (append e2 (if (null? (cddr e1)) (helper (cadr e1) e2) (helper (cdr e1) e2))))
                 (append e2 '#f)))
         ((eqv? (car e1) 'case)
-         ;In the test example, a cond is being returned on its own, look at that
-             (helper (list 'let (list (list 'key (cadr e1)) (casesequences (cddr e1) '() 1)) (list 'cond (list (caselists (cddr e1) '() 1)))) '()))  
+         ;Still messing up somewhere
+             (helper (list 'let (cons (list 'key (cadr test)) (casesequences (cddr test) '() 1)) (list 'cond (caselists (cddr test) '() 1))) '()))  
         ((eqv? (car e1) 'let)
             (append e2 (cons (list 'lambda (getvar (cadr e1) '()) (helper (caddr e1) '())) (getinit (cadr e1) '()))))
         ((eqv? (car e1) 'let*)
@@ -100,14 +100,14 @@
                             e2
                             (if (eqv? (caar e1) 'else)
                                 (append e2 (list 'elsethunk (list 'lambda '() (helper (cdar e1) '()))))
-                                (casesequences (cdr e1) (append e2 (list (list`,(string->symbol (string-append "thunk" (number->string num))) (list 'lambda '() (helper (cdar e1) '()))))) (+ num 1))))))
+                                (casesequences (cdr e1) (append e2 (list (list `,(string->symbol (string-append "thunk" (number->string num))) (list 'lambda '() (helper (cdar e1) '()))))) (+ num 1))))))
 
 (define caselists (lambda (e1 e2 num)
                     (if (null? e1)
                         e2
                         (if (eqv? (caar e1) 'else)
-                            (append e2 (list (list (caar e1) (list 'elsethunk))))
-                            (caselists (cdr e1) (append e2 (list (list (list 'memv 'key (caar e1)) (list `,(string->symbol (string-append "thunk" (number->string num))))))) (+ num 1)))))) 
+                            (append e2 (list (list (list 'quote (caar e1)) (list 'elsethunk))))
+                            (caselists (cdr e1) (append e2 (list (list (list 'memv 'key (list 'quote (caar e1))) (list `,(string->symbol (string-append "thunk" (number->string num))))))) (+ num 1)))))) 
 
 (define test '(case (* 2 3)
   ((2 3 5 7) 'prime)
