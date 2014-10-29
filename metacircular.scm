@@ -1,6 +1,6 @@
 (define interpret #f)
 
-(define top-level-env `( (+ ,+) (- ,-) (1 ,1) (#f ,#f) (#t ,#t) (eqv? ,eqv?))) ;Paired like (symbol, actual procedure)
+(define top-level-env `( (+ ,+) (- ,-) (1 ,1) (#f ,#f) (#t ,#t) (eqv? ,eqv?) (* ,*) )) ;Paired like (symbol, actual procedure)
 
 ;Looks up the given id in the top-level-environment and returns its procedural value
 ;identifiers are symbols, so they need a ' in front
@@ -33,9 +33,12 @@
                 ;(cond <t> <seq>)
                 (if (null? (cddr e1)) ;Then this is the last cond
                     (if (null? e2) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))))) (append e2 (list (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
-                    (helper (cons 'cond (cddr e1)) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
+                    (if (eqv? (car (caddr e1)) 'else)
+                        (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))) (cons 'begin (list (helper (cadr (caddr e1)) '()))))))
                 ;else (cond (<t>) <clause> ...)
-                (helper (list 'or (caadr e1) (cons 'cond (cddr e1))) e2)))
+                (helper (list 'or (caadr e1) (cons 'cond (cddr e1))) e2))))
+        ((eqv? (car e1) 'else)
+            (append e2 (cons 'begin (cadr e1))))
         ((eqv? (car e1) 'and) 
             (if (not (null? (cdr e1)))        ;(and <t1>)
                 (if (not (null? (cddr e1)))   ;(and <t1> <t2> ...)
@@ -147,7 +150,7 @@
       (cond
            ((symbol? exp) (lookup exp env))
            ((number? exp) (lookup exp env))
-           ((pair? exp) 	
+           ((pair? exp)     
              (case  (car exp)
                    ((quote) (cadr exp))
                    ((lambda)
