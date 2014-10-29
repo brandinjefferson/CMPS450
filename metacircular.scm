@@ -20,13 +20,14 @@
                             (id)
                             (set! top-level-env (cons (list id val) top-level-env))))))
 
-
+;(if (and (pair? exp) (not (null? (cdr exp)))) exp (if (pair? (car exp)) (car exp) (list (car exp))))
 (define expand (lambda (exp) (helper exp '())))
 
-(define helper (lambda (e1 e2)
-    (if (or (equal? e1 '()) (not (pair? e1)) (equal? e1 e2))
+(define helper (lambda (exp e2)
+    (if (or (equal? exp '()) (not (pair? exp)) (equal? exp e2)) ;
         e2
-    (cond
+        (let ((e1 (if (not (null? (cdr exp))) exp (if (pair? (car exp)) (car exp) (list (car exp)))))) 
+          (cond
         ((eqv? (car e1) 'cond)
             (if (not (null? (cdr (cadr e1)))) ;if sequence exists
                 ;(cond <t> <seq>)
@@ -62,9 +63,12 @@
                 (helper (list 'let (list (caadr e1)) (list 'let* (cdr (cadr e1)) (caddr e1))) e2)))
         ((eqv? (car e1) 'letrec)
              (helper (list (list 'let  (getvarrec (cadr e1) '())) (list 'let (getinitrec (cadr e1) '() 1)) (list 'begin (getcombos (cadr e1) '() 1) (helper (caddr e1) '()))) e2))
-        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (if (pair? (car e1)) 
-                                                                  (append e2 (car e1))
-                                                                  (append e2 (list (car e1))))))))))
+        ((eqv? (car e1) 'set!)
+            (append e2 (list 'set! (cadr e1) (helper (if (pair? (caddr e1)) (caddr e1) (list (caddr e1))) '()))))
+        ((eqv? (car e1) 'lambda) ;'(set! y (lambda (wut exp) (cond (wut (+ 2 3)) ((zero? exp) (- 1 4)))) )
+            (append e2 (list 'lambda (cadr e1) (helper (caddr e1) '()))));(if (pair? (caddr e1)) (caddr e1) (list (caddr e1)))
+        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (if (pair? (car e1)) (append e2 (car e1)) (append e2 (list (car e1)))))))
+    ))))
 
 (define getvar (lambda (e1 e2) ;e1 = set of sequences
                  (if (or (not (null? e1)))
@@ -107,7 +111,10 @@
                         e2
                         (if (eqv? (caar e1) 'else)
                             (append e2 (list (list (list 'quote (caar e1)) (list 'elsethunk))))
-                            (caselists (cdr e1) (append e2 (list (list (list 'memv 'key (list 'quote (caar e1))) (list `,(string->symbol (string-append "thunk" (number->string num))))))) (+ num 1)))))) 
+                            (caselists (cdr e1) (if (null? e2) 
+                                                    (append e2 (list 'memv 'key (list 'quote (caar e1))) (list (list `,(string->symbol (string-append "thunk" (number->string num)))))) 
+                                                    (list e2 (list (list 'memv 'key (list 'quote (caar e1))) (list `,(string->symbol (string-append "thunk" (number->string num)))))))
+                                       (+ num 1)))))) 
 
 (define test '(case (* 2 3)
   ((2 3 5 7) 'prime)
