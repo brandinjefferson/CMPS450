@@ -1,5 +1,6 @@
 #|
 Author: Brandin Jefferson
+
 Problem Description
 Name: Meta-circular Interpreter
 Problem Statement: The following program, written in Scheme, is meant to partially enact the features of a meta-circular interpreter for the Scheme language. It receives input, breaks it down into its core expression equivalent, and returns the procedures that are being used within the given statement. The resulting expression will do exactly what the original expression using derived expressions would do.
@@ -30,7 +31,7 @@ Output: The result of the expression or the procedures used within it.
 
 ;Name: helper
 ;Arguments: e1 – A quoted expression that would work correctly if run normally; e2 – This list should be empty if being called for the first time.
-;Description: Checks the head of the list to determine what the current expression is. If it is a cond, case, let, letrec, let*, and, or an or then the function enters the conditional that applies to that expression. Inside each conditional, the appropriate steps are taken to create an expression that is equivalent to the derived expression and summarily appended to a list. Through recursion, nested functions also have their correct values outputted in the correct location. If none of the previously named expressions are equal to the head of the given expression, then it is appended to whatever portion of the list it is a part of and the helper function is called on the tail of the expression. This continues until an empty set, number, or something else that is not a pair is encountered, where the function returns the statements it has created.
+;Description: Checks the car for the type of expression and places it within a temporary variable. If it is a cond, case, let, letrec, let*, and, or an or then the function enters the conditional that applies to that expression. Inside each conditional, the appropriate steps are taken to create an expression that is equivalent to the derived expression and summarily appended to a list. Through recursion, nested functions also have their correct values outputted in the correct location. If none of the previously named expressions are equal to the head of the given expression, then it is appended to whatever portion of the list it is a part of and the helper function is called on the tail of the expression. This continues until an empty set, number, or something else that is not a pair is encountered, where the function returns the statements it has created.
 ;Precondition: A quoted expression and a list
 ;Postcondition: The same expression with all derived expressions replaced with their core equivalents
 ;Cost Analysis: O(n)
