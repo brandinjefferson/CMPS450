@@ -1,6 +1,6 @@
 (define interpret #f)
 
-(define top-level-env `( (+ ,+) (- ,-) (1 ,1) (#f ,#f) (#t ,#t) (eqv? ,eqv?) (* ,*) )) ;Paired like (symbol, actual procedure)
+(define top-level-env `( (+ ,+) (- ,-) (1 ,1) (#f ,#f) (#t ,#t) (eqv? ,eqv?) (* ,*) (null? ,null?) (memv ,memv) (equal? ,equal?) (not ,not) )) ;Paired like (symbol, actual procedure)
 
 ;Looks up the given id in the top-level-environment and returns its procedural value
 ;identifiers are symbols, so they need a ' in front
@@ -24,25 +24,28 @@
 (define expand (lambda (exp) (helper exp '())))
 
 (define helper (lambda (exp e2)
-    (if (or (equal? exp '()) (not (pair? exp)) (equal? exp e2)) ;
+    (if (or (equal? exp '()) (not (pair? exp)) (equal? exp e2) (list? (memv (list exp) e2))) ;
         e2
-        (let ((e1 (if (not (null? (cdr exp))) exp (if (pair? (car exp)) (car exp) (list (car exp)))))) 
+        (let ((e1 (if (or (equal? (length exp) 1) (not (null? (cdr exp)))) exp (if (pair? (car exp)) (car exp) (list (car exp)))))) 
           (cond
         ((eqv? (car e1) 'cond)
             (if (not (null? (cdr (cadr e1)))) ;if sequence exists
                 ;(cond <t> <seq>)
                 (if (null? (cddr e1)) ;Then this is the last cond
-                    (if (null? e2) (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))))) (append e2 (list (list 'if (caadr e1) (cons 'begin (cdr (cadr e1)))))))
+                    (if (null? e2) 
+                        (append e2 (list 'if (helper (caadr e1) '()) (list 'begin (helper (cdr (cadr e1)) '()))))
+                        (append e2 (list (list 'if (helper (caadr e1) '()) (list 'begin (helper (cdr (cadr e1)) '()))))))
                     (if (eqv? (car (caddr e1)) 'else)
-                        (append e2 (list 'if (caadr e1) (cons 'begin (cdr (cadr e1))) (cons 'begin (list (helper (cadr (caddr e1)) '()))))))
+                        (append e2 (list 'if (helper (caadr e1) '()) (cons 'begin (helper (cdr (cadr e1)) '())) (list 'begin (helper (cadr (caddr e1)) '()))))
+                        (helper (cons 'cond (cddr e1))(append e2 (list 'if (helper (caadr e1) '()) (list 'begin (helper (cdr (cadr e1)) '())))))))
                 ;else (cond (<t>) <clause> ...)
-                (helper (list 'or (caadr e1) (cons 'cond (cddr e1))) e2))))
+                (helper (list 'or (caadr e1) (cons 'cond (cddr e1))) e2)))
         ((eqv? (car e1) 'else)
             (append e2 (cons 'begin (cadr e1))))
         ((eqv? (car e1) 'and) 
             (if (not (null? (cdr e1)))        ;(and <t1>)
                 (if (not (null? (cddr e1)))   ;(and <t1> <t2> ...)
-                    (append e2 (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'and (cddr e1)) e2)))) (list 'if 'x '(thunk) 'x)))
+                    (append e2 (helper (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'and (cddr e1)) e2)))) (list 'if 'x '(thunk) 'x)) e2))
                     ;else return <t1>
                     (append e2 (helper (cdr e1) e2)))
                 (append e2 '#t)))
@@ -51,7 +54,7 @@
                 (if (not (null? (cddr e1)))   ;(or <t1> <t2> ...)
                     (append e2 (helper (list 'let (list (cons 'x (list (cadr e1))) (list 'thunk (list 'lambda '() (helper (cons 'or (cddr e1)) e2)))) (list 'if 'x 'x '(thunk))) e2))
                     ;else return <t1>
-                    (append e2 (if (null? (cddr e1)) (helper (cadr e1) e2) (helper (cdr e1) e2))))
+                    (append e2 (helper (cdr e1) e2)))
                 (append e2 '#f)))
         ((eqv? (car e1) 'case)
          ;Still messing up somewhere
@@ -70,7 +73,9 @@
             (append e2 (list 'set! (cadr e1) (helper (if (pair? (caddr e1)) (caddr e1) (list (caddr e1))) '()))))
         ((eqv? (car e1) 'lambda) ;'(set! y (lambda (wut exp) (cond (wut (+ 2 3)) ((zero? exp) (- 1 4)))) )
             (append e2 (list 'lambda (cadr e1) (helper (caddr e1) '()))));(if (pair? (caddr e1)) (caddr e1) (list (caddr e1)))
-        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (if (pair? (car e1)) (append e2 (car e1)) (append e2 (list (car e1)))))))
+        ((eqv? (car e1) 'quote)
+             (append e2 (list (list 'quote (cadr e1)))))
+        (else (helper (if (null? (cdr e1)) (car e1) (cdr e1)) (if (pair? (car e1)) (append e2 e1) (append e2 (list (car e1)))))))
     ))))
 
 (define getvar (lambda (e1 e2) ;e1 = set of sequences
