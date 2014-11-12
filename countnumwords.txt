@@ -1,0 +1,10 @@
+       &TRIM  =  1
+            WORD   =  "'-():=,;`"  '0123456789' &UCASE &LCASE
+            WPAT   =  BREAK(WORD) SPAN(WORD)
+
+NEXTL   LINE   =  INPUT                      :F(DONE)
+NEXTW   LINE WPAT . output =                          :F(NEXTL)
+            N      =  N + 1                      :(NEXTW)
+
+DONE    OUTPUT =  +N ' words'
+END

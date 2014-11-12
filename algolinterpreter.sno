@@ -1,0 +1,71 @@
+	&trim = 1	
+	letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+	digits = '0123456789'
+	symbols = "<=>\+-*/^-,:.;_()[]'"
+	logicalvalue = 'true' | 'false' 
+	relationalop = '<' | '<=' | '>' | '>=' | '=' | '\='
+	arithmeticop = '+' | '-' | '*' | '/' | '^'
+	logicop = 'and' | 'or' | '==' | 'not' | '->'
+	separator = ',' | ':' | '.' | ';' | ':=' | '_' | 'step' | 'while' | 'until' | 'comment'
+	bracket = '(' | ')' | '[' | ']' | "'" | 'begin' | 'end'
+	declarator = 'own' | 'Boolean' | 'integer' | 'real' | 'array' | 'switch' | 'procedure'
+	specificator = 'string' | 'label' | 'value'
+	beginct = 0	:(NEXTL) ;*begin statements that haven't been closed yet	
+;*Not all of those should be doing GETWORDS; you have to check for operators as well	
+
+	define('IsIdentifier(W)')
+IsIdentifier
+	W POS(0) SPAN(letters) 	:f(BAD)
+	
+
+NEXTL	original = input	:f(GOOD)
+	ct = 0	:(GETWORDS)
+
+;* Gets the individual words of the line
+GETWORDS
+	original (SPAN(letters digits) | SPAN(symbols)) . symbol =	:s(GETWORDS)f(NEXTL)
+
+;*Checks every character in the word and branches from there
+;*Goes back to GETWORDS if everything goes okay.
+CHECKWORD
+	;*First check against known keywords
+	word 'procedure' =	:s(PROCEDURE)
+	word 'if' = 	:s(IF)
+	word 'begin' = 	:s(BEGIN)
+	word 'for' = 	:s(FOR)
+	word 'integer' = 	:s(INTEGER)
+	word 'real' = 	:s(REAL)
+	word 'end' =	:s(ENDTAG)
+	word 'else' = 	:s(ELSE)
+	output = word	:(GETWORDS)
+
+CHECKOPERATOR
+
+
+;*The stuff to do if this is a procedure block
+PROCEDURE
+	output = 'This is a procedure'	:(GETWORDS)
+
+;*Logic for an if statement
+IF	output = 'This is an if statement'	:(GETWORDS)
+
+BEGIN	beginct = beginct + 1	
+	output = beginct 	:(GETWORDS)
+
+ENDTAG	beginct = beginct - 1	
+	output = beginct	:(GETWORDS)
+
+FOR		:(GETWORDS)
+
+INTEGER		:(GETWORDS)
+
+REAL		:(GETWORDS)
+
+ELSE		:(GETWORDS)
+
+BAD	output = 'No'	:(END)
+
+GOOD	EQ(beginct, 0)	:f(BAD)
+	output = 'Yes'	:(END)
+
+END
