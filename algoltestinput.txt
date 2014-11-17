@@ -1,0 +1,25 @@
+procedure problem (a, b);
+   value a, b; integer a, b;
+      begin integer k; real e;
+         for k := 2 ` (a = 2)   1 step 2 until b do
+            begin
+               e := if prime(k) then sqrt(3 ` k   sin(k))
+                                else sqrt(4 ` k   cos(k));
+               if prime(k) then putlist(k, e, 'prime')
+                           else putlist(k, e, 'nonprime')
+            end
+      end
+	  
+procedure Absmax(a) Size:(n, m) Result:(y) Subscripts:(i, k);
+    value n, m; array a; integer n, m, i, k; real y;
+comment The absolute greatest element of the matrix a, of size n by m 
+is transferred to y, and the subscripts of this element to i and k;
+begin integer p, q;
+    y := 0; i := k := 1;
+    for p:=1 step 1 until n do
+    for q:=1 step 1 until m do
+        if abs(a[p, q]) > y then
+            begin y := abs(a[p, q]);
+            i := p; k := q
+            end
+end Absmax
