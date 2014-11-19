@@ -10,8 +10,8 @@
 	bracket = '(' | ')' | '[' | ']' | "'" | 'begin' | 'end'
 	types = 'real' | 'integer' | 'Boolean'
 	specificator = 'string' | 'label' | 'value'
-	
-	ct = 0	 ;*begin statements that haven't been closed yet	
+	ct = 0
+	beginct = 0	 ;*begin statements that haven't been closed yet	
 ;*Not all of those should be doing GETWORDS; you have to check for operators as well	
 	
 	DEFINE('IDENTIFIER(line)')
@@ -19,7 +19,7 @@
 	;*Description: Checks the symbol after a variable for a [ to determine whether to continue
 	;* as an array or not.
 	DEFINE('ARRAYSIGN(line)')
-	DEFINE('BEGINBLOCK(line)')
+	DEFINE('BLOCK(line)')
 	DEFINE('ARITHMETICEXP(line)')
 	DEFINE('COMMENT(actualline)')
 	DEFINE('DECLARATION(actualline)')
@@ -31,40 +31,48 @@ NEXTL	originalline = input	:f(GOOD)S(GETSYMBOL)
 GETSYMBOL
 	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol =	:f(NEXTL)
 	IDENT(symbol,';')	:S(CHECK)
+	IDENT(symbol,'begin')	:S(CHECKBL)
 	actualline = actualline symbol	:(GETSYMBOL)
 
-CHECK	COMMENT(actualline)	:S(GETSYMBOL)
-	PROCEDURE(actualline)	:S(GETSYMBOL)
-	DECLARATION(actualline)	:S(DECLAR)F(NOTDECLAR)
+CHECK	DECLARATION(actualline)	:(GETSYMBOL)
+CHECKBL	BLOCK(actualline)	:S(ISBLOCK)F(NOTBLOCK)
 
-PROCEDURE
-	output = 'In Procedure'
-	templine = actualline
-	templine (SPAN(letters)) . check =
-	IDENT(check,'procedure')	:s(PROC1)
-	IDENT(check,types)	:s(PROC0)F(freturn)
-PROC0	templine (SPAN(letters)) . check =	:f(BAD)
-	IDENT(check,'procedure')	:f(BAD)S(PROC1)
-PROC1	templine = actualline
-	VALUEPART1 = 'value' SPAN(' ')
-	VALUEPART2 = VALUEPART1 (SPAN((letters digits) (', ')))
-	SPECIFIER = ('string' | types | 'array' | 'label' | 'switch' | (types (array | procedure)))
-	;*Check the current line's stuff for being correct before moving to PROC2
-	actualline = ''
-PROC2	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol =	:f(PROC3)
-	IDENT(symbol,';')	:S(PROC4)
-	;*IDENT(symbol,'end')	:S(PROC4)
-	actualline = actualline symbol	:(PROC2)
-PROC3	originalline = input	:s(PROC2)f(return)
-PROC4	COMMENT(actualline)	:S(PROC5)
-	DECLARATION(actualline)	:(PROC5)
-	templine = actualline
-	templine VALUEPART2 =	:S(PROC5)
-	templine = actualline
-	templine SPECIFIER =	:(PROC5)
-PROC5	output = actualline
-	actualline = ''	:(PROC2)
+BLOCK	beginct = beginct + 1
+	output = beginct
+	LABEL = SPAN(letters ' ') ':'
+	BLOCKBEG = LABEL (SPAN(' ') 'begin')
+BLOCK0	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol =	:f(BLOCK01)
+	IDENT(symbol,';')	:S(BLOCK02)
+	actualline = actualline symbol	:(BLOCK0)
+BLOCK01	originalline = input	:(BLOCK0)
+BLOCK02	output = 'BLOCK02'
+	DECLARATION(actualline)	;*:s(BLOCK03) must be begin <declaration>
+	;*ASSIGNMENT(actualline)	:S(BLOCK03)
+	;*GOTO(actuallines)	:S(BLOCK03)
+	;*PROCEDUREDEC(actuallines)	:F(FRETURN)
+BLOCK03	actualline = ''	:(BLOCK1)
+BLOCK1	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol = :f(BLOCKNEW)
+	IDENT(symbol,';')	:S(BLOCKCHK)
+	IDENT(symbol,'begin')	:S(BLOCKCHK1)
+	IDENT(symbol,'end')	:S(BLOCKEND)
+	;*IDENT(symbol,LABEL)	:S(BLOCKCHK1)
+	actualline = actualline symbol	:(BLOCK1)
+BLOCKCHK	DECLARATION(actualline)	:(BLOCK1)
 	
+BLOCKCHK1	BLOCK(actualline)	:(BLOCK1)
+	
+BLOCKNEW	originalline = input	:f(FRETURN)S(BLOCK1)
+BLOCKEND	beginct = beginct - 1
+	LT(beginct,0)	:S(FRETURN)
+	;*Check for type of exp before the 'end'
+	actualline = ''	:(return)
+		
+	
+ISBLOCK	output = "Found a block"	:(GETSYMBOL)
+
+NOTBLOCK	output = "Not a block"	:(GETSYMBOL)
+
+
 
 DECLARATION
 	templine = actualline
@@ -81,19 +89,7 @@ DECLARSWITCH
 	SWITCHDEC1 = 'switch' SPAN(' ')
 	SWITCHDEC2 = SWITCHDEC1 SPAN(letters)
 	SWITCHDEC3 = SWITCHDEC2 (SPAN(' ') ':=')
-	templine SWITCHDEC3 =	:S(RETURN)F(freturn)
-	
-DECLAR	output = 'A declaration'
-	output = actualline
-	actualline = ''	:(GETSYMBOL)
-NOTDECLAR	output = 'Not a declaration'
-	output = actualline
-	actualline = ''	:(GETSYMBOL)
-
-COMMENT	templine = actualline
-	templine (SPAN(letters)) . check =
-	IDENT(check,'comment')	:s(COMMENT1)f(freturn)
-COMMENT1	actualline = ''	:(return)
+	templine SWITCHDEC3 =	:S(RETURN)F(freturn)	
 
 BAD	output = 'No'	:(END)
 GOOD	output = 'Yes'	:(END)
