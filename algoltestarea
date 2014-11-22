@@ -1,7 +1,8 @@
-	&trim = 1	
+	&FULLSCAN = 1	
 	letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 	digits = '0123456789'
 	symbols = "<=>\+-*/^-,:.;_()[]'"
+	everything = ((letters digits) symbols)
 	logicalvalue = 'true' | 'false' 
 	relationalop = '<' | '<=' | '>' | '>=' | '=' | '\='
 	arithmeticop = '+' | '-' | '*' | '/' | '^'
@@ -10,86 +11,69 @@
 	bracket = '(' | ')' | '[' | ']' | "'" | 'begin' | 'end'
 	types = 'real' | 'integer' | 'Boolean'
 	specificator = 'string' | 'label' | 'value'
+	LABEL = (NOTANY(' ') SPAN(letters)) ':'
 	ct = 0
 	beginct = 0	 ;*begin statements that haven't been closed yet	
-;*Not all of those should be doing GETWORDS; you have to check for operators as well	
-	
-	DEFINE('IDENTIFIER(line)')
-	DEFINE('NUMBER(line)')
-	;*Description: Checks the symbol after a variable for a [ to determine whether to continue
-	;* as an array or not.
-	DEFINE('ARRAYSIGN(line)')
-	DEFINE('BLOCK(line)')
-	DEFINE('ARITHMETICEXP(line)')
-	DEFINE('COMMENT(actualline)')
-	DEFINE('DECLARATION(actualline)')
-	DEFINE('PROCEDURE(actualline)')
 
-NEXTL	originalline = input	:f(GOOD)S(GETSYMBOL)
-
-;* Gets the individual words of the line
-GETSYMBOL
-	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol =	:f(NEXTL)
-	IDENT(symbol,';')	:S(CHECK)
-	IDENT(symbol,'begin')	:S(CHECKBL)
-	actualline = actualline symbol	:(GETSYMBOL)
-
-CHECK	DECLARATION(actualline)	:(GETSYMBOL)
-CHECKBL	BLOCK(actualline)	:S(ISBLOCK)F(NOTBLOCK)
-
-BLOCK	beginct = beginct + 1
-	output = beginct
-	LABEL = SPAN(letters ' ') ':'
-	BLOCKBEG = LABEL (SPAN(' ') 'begin')
-BLOCK0	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol =	:f(BLOCK01)
-	IDENT(symbol,';')	:S(BLOCK02)
-	actualline = actualline symbol	:(BLOCK0)
-BLOCK01	originalline = input	:(BLOCK0)
-BLOCK02	output = 'BLOCK02'
-	DECLARATION(actualline)	;*:s(BLOCK03) must be begin <declaration>
-	;*ASSIGNMENT(actualline)	:S(BLOCK03)
-	;*GOTO(actuallines)	:S(BLOCK03)
-	;*PROCEDUREDEC(actuallines)	:F(FRETURN)
-BLOCK03	actualline = ''	:(BLOCK1)
-BLOCK1	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol = :f(BLOCKNEW)
-	IDENT(symbol,';')	:S(BLOCKCHK)
-	IDENT(symbol,'begin')	:S(BLOCKCHK1)
-	IDENT(symbol,'end')	:S(BLOCKEND)
-	;*IDENT(symbol,LABEL)	:S(BLOCKCHK1)
-	actualline = actualline symbol	:(BLOCK1)
-BLOCKCHK	DECLARATION(actualline)	:(BLOCK1)
-	
-BLOCKCHK1	BLOCK(actualline)	:(BLOCK1)
-	
-BLOCKNEW	originalline = input	:f(FRETURN)S(BLOCK1)
-BLOCKEND	beginct = beginct - 1
-	LT(beginct,0)	:S(FRETURN)
-	;*Check for type of exp before the 'end'
-	actualline = ''	:(return)
+;*IDENTIFIER/NORMAL VARIABLE
+	ID1 = @N POS(*N) ANY(letters)
+	ID2 = SPAN(letters digits) | ''
+	IDENTIFIER = ID1 ID2
+;*NUMBER
+	NUM1 = (ANY('+-') | '') SPAN(digits)
+	NUM2 = '.' SPAN(DIGITS)
+	NUMBER = NUM1 (NUM2 | '')
+	UNSIGNEDNUM = SPAN(DIGITS) ('.' SPAN(DIGITS) | '')
+;*ARRAY
+	SIMPLEVAR = IDENTIFIER
+	ARRAYITEM = *ARITHMETICEXP | *SUBSCRIPTEDVAR
+	SUBLIST = '[' ARRAYITEM ARBNO(',' ARRAYITEM) ']' 
+	SUBSCRIPTEDVAR = SIMPLEVAR SUBLIST
+;*FUNCTIONCALL
+	STRING = "'" SPAN(((LETTERS DIGITS) '<=>\+-*/^-,:.;_()[] ')) "'"
+	PARAM =  SUBSCRIPTEDVAR | IDENTIFIER | STRING | *ARITHMETICEXP
+	;*PARAM = SPAN((letters digits) "+-/\=*^<>'")
+	PARAMDELIMITER = ',' | ')' SPAN(LETTERS) ':('
+	PARAMLIST = PARAM ARBNO(PARAMDELIMITER PARAM)
+	ENDPARAM = (')' @N POS(*N) ANY('+-/*^ <>;=\,)]'))
+	PARAM1 = ARB ENDPARAM @N 
+	PARAMPART =  '(' PARAMLIST ')' 
+	FUNCTCALL = IDENTIFIER PARAMPART | IDENTIFIER ' '
+;*BOOLEANEXP
+	RELATION = *ARITHMETICEXP (SPAN(' ') | '') relationalop (SPAN(' ') | '') *ARITHMETICEXP
+	BOOLPRIMARY = (RELATION | FUNCTCALL |  '(' *BOOLEANEXP ')' | logicalvalue | SUBSCRIPTEDVAR | SIMPLEVAR)
+	BOOLSECOND = ('not' SPAN(' ') | '') BOOLPRIMARY
+	BOOLFACTOR1 = *(X ((SPAN(' ') 'and' SPAN(' ') *BOOLFACTOR) | ''))
+	BOOLFACTOR = BOOLSECOND $ X EVAL(BOOLFACTOR1)
+	BOOLTERM1 = *(X ((SPAN(' ') 'or' SPAN(' ') *BOOLTERM) | ''))
+	BOOLTERM = BOOLFACTOR $ X EVAL(BOOLTERM1)
+	IMPL1 = *(X (((SPAN(' ') | '') '->' (SPAN(' ') | '') *IMPLICATION) | ''))
+	IMPLICATION = BOOLTERM $ X EVAL(IMPL1)
+	SIMPLEBOOL1 = *(X (((SPAN(' ') | '') '==' (SPAN(' ') | '') *SIMPLEBOOL) | ''))
+	SIMPLEBOOL = IMPLICATION $ X EVAL(SIMPLEBOOL1)
+	BOOLEANEXP = SIMPLEBOOL ;* | IFCLAUSE SIMPLEBOOL SPAN(' ') 'else' SPAN(' ') BOOLEANEXP
+;*ARITHMETICEXP 
+	PRIMARY = FUNCTCALL | SUBSCRIPTEDVAR | IDENTIFIER | UNSIGNEDNUM | '(' *SIMPLEARITHEXP ')'
+	FACTOR1 = *(X (('^' *FACTOR) | ''))
+	FACTOR = PRIMARY $ X EVAL(FACTOR1) ;*ARBNO('^' PRIMARY) RPOS(0)
+	TERM1 = *(X ((ANY('*/') *TERM) | ''))
+	TERM = FACTOR $ X EVAL(TERM1)  ;*ARBNO(ANY('*/') FACTOR) RPOS(0)
+	SIMPLEARITHEXP1 = *(X ((ANY('+-') *SIMPLEARITHEXP) | ''))
+	SIMPLEARITHEXP = (ANY('+-') | '') TERM $ X EVAL(SIMPLEARITHEXP1)
+	ARITHMETICEXP = SIMPLEARITHEXP  ;* | IFCLAUSE
+;*DESIGNATIONEXP
+	LABEL = IDENTIFIER | UNSIGNEDNUM
+	SWITCHDES = IDENTIFIER SUBLIST
+	SIMPLEDESEXP = SWITCHDES | LABEL | '(' *DESIGNEXP ')'
+	DESIGNEXP = SIMPLEDESEXP ;* | IFCLAUSE SIMPLEDESEXP SPAN(' ') 'else' SPAN(' ') DESIGNEXP
 		
+
+TEST	originalline = input	:F(GOOD)
+	originalline BOOLEANEXP . output =	:(TEST)
 	
-ISBLOCK	output = "Found a block"	:(GETSYMBOL)
-
-NOTBLOCK	output = "Not a block"	:(GETSYMBOL)
-
-
-
-DECLARATION
-	templine = actualline
-DECLARTYPE
-	OWN = ('own' | '') ' '
-	TYPEDEC = OWN types
-	templine TYPEDEC =	:s(return)f(DECLARARRAY) ;*on S, check list of items
-DECLARARRAY
-	templine = actualline
-	ARRAYDEC = (TYPEDEC | '') 'array'
-	templine ARRAYDEC =	:s(return)f(DECLARSWITCH)
-DECLARSWITCH
-	templine = actualline
-	SWITCHDEC1 = 'switch' SPAN(' ')
-	SWITCHDEC2 = SWITCHDEC1 SPAN(letters)
-	SWITCHDEC3 = SWITCHDEC2 (SPAN(' ') ':=')
-	templine SWITCHDEC3 =	:S(RETURN)F(freturn)	
+TEST1	originalline (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol =	:F(TEST2)
+	actualline = actualline symbol	:(TEST1)	
+TEST2	
 
 BAD	output = 'No'	:(END)
 GOOD	output = 'Yes'	:(END)

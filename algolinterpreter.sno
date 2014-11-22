@@ -1,39 +1,154 @@
-	&trim = 1	
+	&FULLSCAN = 1	
 	letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 	digits = '0123456789'
 	symbols = "<=>\+-*/^-,:.;_()[]'"
+	everything = ((letters digits) symbols)
 	logicalvalue = 'true' | 'false' 
 	relationalop = '<' | '<=' | '>' | '>=' | '=' | '\='
 	arithmeticop = '+' | '-' | '*' | '/' | '^'
 	logicop = 'and' | 'or' | '==' | 'not' | '->'
-	separator = ',' | ':' | '.' | ';' | ':=' | '_' | 'step' | 'while' | 'until' | 'comment'
+	separator = ',' | ':=' | '.' | ';' | ':' | '_' | 'step' | 'while' | 'until' | 'comment'
 	bracket = '(' | ')' | '[' | ']' | "'" | 'begin' | 'end'
-	declarator = 'own' | 'Boolean' | 'integer' | 'real' | 'array' | 'switch' | 'procedure'
+	types = 'real' | 'integer' | 'Boolean'
 	specificator = 'string' | 'label' | 'value'
+	LABEL = (NOTANY(' ') SPAN(letters)) ':'
+	ct = 0
 	beginct = 0	 ;*begin statements that haven't been closed yet	
-;*Not all of those should be doing GETWORDS; you have to check for operators as well	
 
-	DEFINE('IDENTIFIER(line)')
-	DEFINE('NUMBER(line)')
-	;*Description: Checks the symbol after a variable for a [ to determine whether to continue
-	;* as an array or not.
-	DEFINE('ARRAYSIGN(line)')
-	DEFINE('BEGINBLOCK(line)')
-	DEFINE('COMMENT(actualline)')
-	DEFINE('DECLARATION(actualline)')
-	DEFINE('PROCEDURE(actualline)')
+;*IDENTIFIER/NORMAL VARIABLE
+	ID1 = @N POS(*N) ANY(letters)
+	ID2 = SPAN(letters digits) | ''
+	IDENTIFIER = ID1 ID2
+;*NUMBER
+	NUM1 = (ANY('+-') | '') SPAN(digits)
+	NUM2 = '.' SPAN(DIGITS)
+	NUMBER = NUM1 (NUM2 | '')
+	UNSIGNEDNUM = SPAN(DIGITS) ('.' SPAN(DIGITS) | '')
+;*ARRAY
+	SIMPLEVAR = IDENTIFIER
+	ARRAYITEM = *ARITHMETICEXP | *SUBSCRIPTEDVAR
+	SUBLIST = '[' ARRAYITEM ARBNO(',' ARRAYITEM) ']' 
+	SUBSCRIPTEDVAR = SIMPLEVAR SUBLIST
+;*FUNCTIONCALL
+	STRING = "'" SPAN(((LETTERS DIGITS) '<=>\+-*/^-,:.;_()[] ')) "'"
+	PARAM =  SUBSCRIPTEDVAR | IDENTIFIER | STRING | *ARITHMETICEXP
+	;*PARAM = SPAN((letters digits) "+-/\=*^<>'")
+	PARAMDELIMITER = ',' | ')' SPAN(LETTERS) ':('
+	PARAMLIST = PARAM ARBNO(PARAMDELIMITER PARAM)
+	ENDPARAM = (')' @N POS(*N) ANY('+-/*^ <>;=\,)]'))
+	PARAM1 = ARB ENDPARAM @N 
+	PARAMPART =  '(' PARAMLIST ')' 
+	FUNCTCALL = IDENTIFIER PARAMPART | IDENTIFIER ' '
+;*BOOLEANEXP
+	RELATION = *ARITHMETICEXP (SPAN(' ') | '') relationalop (SPAN(' ') | '') *ARITHMETICEXP
+	BOOLPRIMARY = (RELATION | FUNCTCALL |  '(' *BOOLEANEXP ')' | logicalvalue | SUBSCRIPTEDVAR | SIMPLEVAR)
+	BOOLSECOND = ('not' SPAN(' ') | '') BOOLPRIMARY
+	BOOLFACTOR1 = *(X ((SPAN(' ') 'and' SPAN(' ') *BOOLFACTOR) | ''))
+	BOOLFACTOR = BOOLSECOND $ X EVAL(BOOLFACTOR1)
+	BOOLTERM1 = *(X ((SPAN(' ') 'or' SPAN(' ') *BOOLTERM) | ''))
+	BOOLTERM = BOOLFACTOR $ X EVAL(BOOLTERM1)
+	IMPL1 = *(X (((SPAN(' ') | '') '->' (SPAN(' ') | '') *IMPLICATION) | ''))
+	IMPLICATION = BOOLTERM $ X EVAL(IMPL1)
+	SIMPLEBOOL1 = *(X (((SPAN(' ') | '') '==' (SPAN(' ') | '') *SIMPLEBOOL) | ''))
+	SIMPLEBOOL = IMPLICATION $ X EVAL(SIMPLEBOOL1)
+	BOOLEANEXP = SIMPLEBOOL ;* | IFCLAUSE SIMPLEBOOL SPAN(' ') 'else' SPAN(' ') BOOLEANEXP
+;*ARITHMETICEXP 
+	PRIMARY = FUNCTCALL | SUBSCRIPTEDVAR | IDENTIFIER | UNSIGNEDNUM | '(' *SIMPLEARITHEXP ')'
+	FACTOR1 = *(X (('^' *FACTOR) | ''))
+	FACTOR = PRIMARY $ X EVAL(FACTOR1) ;*ARBNO('^' PRIMARY) RPOS(0)
+	TERM1 = *(X ((ANY('*/') *TERM) | ''))
+	TERM = FACTOR $ X EVAL(TERM1)  ;*ARBNO(ANY('*/') FACTOR) RPOS(0)
+	SIMPLEARITHEXP1 = *(X ((ANY('+-') *SIMPLEARITHEXP) | ''))
+	SIMPLEARITHEXP = (ANY('+-') | '') TERM $ X EVAL(SIMPLEARITHEXP1)
+	ARITHMETICEXP = SIMPLEARITHEXP  ;* | IFCLAUSE
+;*DESIGNATIONEXP
+	LABEL = IDENTIFIER | UNSIGNEDNUM
+	SWITCHDES = IDENTIFIER SUBLIST
+	SIMPLEDESEXP = SWITCHDES | LABEL | '(' *DESIGNEXP ')'
+	DESIGNEXP = SIMPLEDESEXP ;* | IFCLAUSE SIMPLEDESEXP SPAN(' ') 'else' SPAN(' ') DESIGNEXP
 
 NEXTL	originalline = input	:f(GOOD)S(GETSYMBOL)
 
 ;* Gets the individual words of the line
 GETSYMBOL
-	originalline (SPAN(letters digits) | ANY(symbols) | ' ') . symbol =	:f(NEXTL)
+	originalline (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol =	:f(NEXTL)
 	IDENT(symbol,';')	:S(CHECK)
+	;*IDENT(symbol,'begin')	:S(CHECKBL)
 	actualline = actualline symbol	:(GETSYMBOL)
+
+CHECK	ASSIGNMENT(actualline)	:S(GETSYMBOL)
+	DECLARATION(actualline)	:(GETSYMBOL)
+CHECKBL	BLOCK(actualline)	:S(ISBLOCK)F(NOTBLOCK)
+
 ;*-----------------------------------------------------------------------
 CHECK	COMMENT(actualline)	:S(GETSYMBOL)
 	PROCEDURE(actualline)	:S(GETSYMBOL)
 	DECLARATION(actualline)	:S(DECLAR)F(NOTDECLAR)
+	
+;*-----------------------------------------------------------------------
+CONDITIONAL	templine = line
+COND	templine (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol = :f(FRETURN)
+	IDENT(symbol, 'if')	:S(CONDSTAT)
+	lab = lab symbol
+	lab LABEL . tsymbol	:S(CONDINIT)F(COND)
+CONDINIT	EQ(SIZE(lab),SIZE(tsymbol))	:F(freturn)
+	lab = ''	:(COND)
+CONDSTAT	ifct = 1
+CONDSTAT1 ;*exp = <Boolean Exp>  --> if <Boolean Exp> then
+	templine (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol =	:f(freturn)
+	IDENT(symbol,'if')	:S(CONDSTAT2)
+	IDENT(symbol,'then')	:S(CONDSTAT3)
+	exp = exp symbol	:(CONDSTAT1)
+CONDSTAT2	ifct = ifct + 1
+	exp = exp symbol	:(CONDSTAT1)
+CONDSTAT3	ifct = ifct - 1	
+	IDENT(ifct,0)	:S(CONDSTAT4) ;*succeeds if last then
+	exp = exp symbol	:(CONDSTAT1)
+CONDSTAT4	BOOLEANEXP(exp)	:f(freturn)
+CONDTHEN	exp = ''
+CONDTHEN1	templine (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol =	:f(CONDTHEN2)
+	;*Perform checks for elses
+	IDENT(symbol,'else')	:S(CONDELSE)
+	exp = exp symbol
+CONDTHEN2	
+	
+;*------------------------------------------------------------------------
+DUMMYSTAT
+	line (SPAN(letters digits) | ANY(symbols)) . temp =	:f(return)
+	temp ANY((letters digits) symbols)	:S(freturn)f(return)	
+
+;*------------------------------------------------------------------------
+GOTO	templine = line
+	line SPAN((letters digits) symbols) . SETUP =
+	IDENT(SETUP,'go')	:f(freturn)
+	line SPAN((letters digits) symbols) . SETUP =	
+	IDENT(SETUP,'to') 	:F(FRETURN)S(GOTO1)
+GOTO1	;*line SPAN(' ') =
+	;*DESIGNEXP(line)	:f(freturn)s(return)
+
+;*-------------------------------------------------------------------------
+ASSIGNMENT
+	templine = line
+	templine BREAK(':') . tsymbol =	:f(FRETURN)
+	IDENTIFIER(tsymbol)	:f(FRETURN)
+	LEFTPART = (SPAN((LETTERS DIGITS) '[],') (SPAN(' ') | '')) ':='	
+	line LEFTPART =	:f(FRETURN)
+ASSIGNVAR	line SPAN((letters digits) '[],') . tsymbol = 	:f(FRETURN) 
+	IDENTIFIER(tsymbol)	:f(ASSIGNEXP)S(ASSIGNEQ)
+ASSIGNEQ	line SPAN(symbols) . rsymbol =	:f(return)
+	IDENT(rsymbol, ':=')	:f(ASSIGNEXP)S(ASSIGNVAR)
+ASSIGNEXP	newline = newline tsymbol
+	newline = newline rsymbol
+ASSIGNEXP1
+	line (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . tsymbol =	:f(ASSIGNEXP2)
+	newline = newline tsymbol	:(ASSIGNEXP1)
+ASSIGNEXP2	
+	;*ARITHMETICEXP(newline)	:S(RETURN)
+	;*BOOLEANEXP(newline)	:S(return)f(freturn)
+	output = newline	
+	newline = ''	:(return)
+
+
 
 ;*-----------------------------------------------------------------------
 PROCEDURE
@@ -64,7 +179,7 @@ PROC4	COMMENT(actualline)	:S(PROC5)
 PROC5	output = actualline
 	actualline = ''	:(PROC2)
 	
-
+;*----------------------------------------------------------------------------------------------
 DECLARATION
 	templine = actualline
 DECLARTYPE
@@ -89,56 +204,87 @@ NOTDECLAR	output = 'Not a declaration'
 	output = actualline
 	actualline = ''	:(GETSYMBOL)
 
+;*------------------------------------------------
 COMMENT	templine = actualline
 	templine (SPAN(letters)) . check =
 	IDENT(check,'comment')	:s(COMMENT1)f(freturn)
 COMMENT1	actualline = ''	:(return)	
 	
 ;*----------------------------------------------------------------------
-IDENTIFIER line = symbol
-	line POS(0) ANY(letters)	:s(ID1)f(ID2) ;*change f to freturn?
-ID1	line POS(0) . output =
-	line SPAN(letters digits) . T =	
-	EQ(SIZE(symbol),SIZE(T)) line	:s(VARIABLE) ;*Next check if it's a variable
-ID2	NUMBER(line)	:f(GETSYMBOL) ;* would need to check for symbols next
+IDENTIFIER 
+	line NOTANY(' ') . wline =
+	ws = wline
+	ws POS(0) LEN(1) . wa =
+	wa ANY(letters)	:s(ID1)f(freturn) ;*change f to freturn?
+ID1	;*wline POS(0) LEN(1) . output =
+	ws SPAN(letters digits) . T =	
+	EQ(SIZE(ws),SIZE(T))	:s(RETURN)f(VARIABLE) ;*Next check if it's aN ARRAY
+VARIABLE	;*templine = actualline
+	;*templine (SPAN(letters digits) | ANY(symbols)) . next = :f(return) ;*means there was nothing after the var
+	READLIST(next)	:F(freturn)S(return)
 
 NUMBER	WPAT = ((ANY('+-') | '') SPAN(digits)) '.' (SPAN(digits) | '')
-	line WPAT =	:(GETSYMBOL)
-
-
-VARIABLE	line = originalline
-	line (SPAN(letters digits) | ANY(symbols)) . next = :f(GETSYMBOL) ;*means there was nothing after the var
-	READLIST(next)
-	BLOCK(next)
+	WAPT = (ANY('+-') | '') SPAN(digits)
+	line (WPAT | WAPT) =	:s(return)f(freturn)
 
 ;*----------------------------------------------------------------------
-READLIST	ct = ct + 1
-	GT(ct,1)	:s(INNERLIST)
+READLIST	line ((SPAN(letters digits) SPAN(' ')) '[') = 	:f(freturn)s(READLIST0)
+READLIST0	ct = ct + 1
+	GT(ct,1)	:s(INNERLIST)	
 READLIST1
-	originalline (SPAN(letters digits) | ANY(symbols)) . symbol = :f(READLIST2)
-	IDENT(symbol,'[')	:s(READLIST)
+	line (SPAN(letters digits) | ANY(symbols)) . symbol = :f(freturn)
+	IDENT(symbol,'[')	:s(READLIST0)
 	IDENT(symbol,']')	:s(ENDLIST)
 	list = list symbol	:(READLIST1)
-READLIST2
-	originalline = input	:f(BAD)S(READLIST1)
 ENDLIST	ct = ct - 1
-	LT(ct,0)	:S(BAD)
-	EQ(ct,0)	:S(GETSYMBOL)F(READLIST1)
+	LT(ct,0)	:S(FRETURN)
+	EQ(ct,0)	:S(RETURN)F(READLIST1)
 INNERLIST
 	list = list symbol
 INNERLIST1
-	originalline (SPAN(letters digits) | ANY(symbols)) . symbol = :f(INNERLIST2)
+	actualline (SPAN(letters digits) | ANY(symbols)) . symbol = :f(freturn)
+	;*IDENT(symbol,'[')	:S(READLIST)
 	IDENT(symbol,']')	:s(INNERLIST3)
 	list = list symbol	:(INNERLIST1)
-INNERLIST2
-	originalline = input	:f(BAD)S(INNERLIST1)
 INNERLIST3
 	list = list symbol
 	ct = ct - 1
 	EQ(ct,1)	:s(READLIST1)f(INNERLIST1)
 		
-;*---------------------------------------------------------------------
-BEGINBLOCK
+;*------------------------------------------------------------------------
+BLOCK	beginct = beginct + 1
+	output = beginct
+	BLOCKBEG = LABEL (SPAN(' ') 'begin')
+BLOCK0	originalline (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol =	:f(BLOCK01)
+	IDENT(symbol,';')	:S(BLOCK02)
+	actualline = actualline symbol	:(BLOCK0)
+BLOCK01	originalline = input	:(BLOCK0)
+BLOCK02	output = 'BLOCK02'
+	DECLARATION(actualline)	:s(BLOCK03)
+	ASSIGNMENT(actualline)	:S(BLOCK03)
+	DUMMY(actualline)	:S(BLOCK03)
+	;*GOTO(actuallines)	:S(BLOCK03)
+	;*PROCEDUREDEC(actuallines)	:F(FRETURN)
+BLOCK03	actualline = ''	:(BLOCK1)
+BLOCK1	originalline (SPAN(letters digits) | ANY(symbols) | SPAN(' ')) . symbol = :f(BLOCKNEW)
+	IDENT(symbol,';')	:S(BLOCKCHK)
+	IDENT(symbol,'begin')	:S(BLOCKCHK1)
+	IDENT(symbol,'end')	:S(BLOCKEND)
+	;*IDENT(symbol,LABEL)	:S(BLOCKCHK1)
+	actualline = actualline symbol	:(BLOCK1)
+BLOCKCHK	DECLARATION(actualline)	:(BLOCK1)
+	ASSIGNMENT(actualline)	:S(BLOCK1)
+	DUMMY(actualline)	:S(BLOCK1)
+	;*GOTO(actuallines)	:S(BLOCK1)
+	;*PROCEDUREDEC(actuallines)	:F(FRETURN)
+
+BLOCKCHK1	BLOCK(actualline)	:(BLOCK1)
+	
+BLOCKNEW	originalline = input	:f(FRETURN)S(BLOCK1)
+BLOCKEND	beginct = beginct - 1
+	LT(beginct,0)	:S(FRETURN)
+	;*Check for type of exp before the 'end'
+	actualline = ''	:(return)
 
 
 END
