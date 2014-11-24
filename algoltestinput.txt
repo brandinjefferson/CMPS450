@@ -1,25 +1,89 @@
-procedure problem (a, b);
-   value a, b; integer a, b;
-      begin integer k; real e;
-         for k := 2 ` (a = 2)   1 step 2 until b do
-            begin
-               e := if prime(k) then sqrt(3 ` k   sin(k))
-                                else sqrt(4 ` k   cos(k));
-               if prime(k) then putlist(k, e, 'prime')
-                           else putlist(k, e, 'nonprime')
-            end
-      end
-	  
 procedure Absmax(a) Size:(n, m) Result:(y) Subscripts:(i, k);
-    value n, m; array a; integer n, m, i, k; real y;
+value n, m; array a; integer n, m, i, k; real y;
 comment The absolute greatest element of the matrix a, of size n by m 
 is transferred to y, and the subscripts of this element to i and k;
 begin integer p, q;
-    y := 0; i := k := 1;
-    for p:=1 step 1 until n do
-    for q:=1 step 1 until m do
-        if abs(a[p, q]) > y then
-            begin y := abs(a[p, q]);
-            i := p; k := q
-            end
+y := 0; i := k := 1;
+for p:=1 step 1 until n do
+for q:=1 step 1 until m do
+if abs(a[p, q]) > y then
+ begin y := abs(a[p, q]);
+ i := p; k := q
+end
 end Absmax
+
+procedure Spur(a)Order:(N)Result:(S) ; value n;
+array a; integer n; real s;
+begin integer k;
+s := 0;
+for k:=1 step 1 until n do s := s + a[k,k]
+end
+
+integer procedure Step (u) ; real u;
+Step := if 0<-u and u<=1 then 1 else 0
+
+--Problem on this one
+procedure euler (fct, sum, eps, tim) ; value eps, tim;
+integer tim; real procedure fct; real sum, eps;
+comment euler computes the sum of fct(i) for i from zero up to infinity by means of a suitably refined euler ;
+begin integer i,k,n,t; array m[0:15] ; real mn, mp, ds ;
+i:=n := t := 0 ; m[0] := fct(0) ; sum := m[0]/2;
+nextterm: i := i+1 ; mn:= fct(i) ;
+for k:=0 step 1 until n do	
+begin mp := (mn+m[k])/2 ; m[k] := mn ;
+mn := mp end means ;
+if (abs(mn) < abs(m[n])) and (n<15) then
+begin ds := mn/2; n:=n+1; m[n] := mn end accept
+else ds := mn;
+sum := sum + ds ;
+if (abs(ds)<eps then t:= t+1 else t:=0;
+if t<tim then go to nextterm
+end euler
+
+procedure Innerproduct(a,b)Order:(k,p)Result:(y) ;
+ value k; integer k,p; real y,a,b ;
+begin real s;
+s := 0;
+for p:=1 step 1 until k do s:=s+a*b; y:=s
+end Innerproduct  
+
+--Pattern overflow
+procedure RK(x,y,n,FKT,eps,eta,xE,yE,fi) ; 
+value x,y ; integer n ; Boolean fi ; real x,eps, eta,xE ; 
+array y,yE ; procedure FKT;
+comment : This program is a load of horse bullwinky. You won't ever need to see this part. Ya probably stopped reading the moment you saw the word 'comment' anyway ;
+begin
+ array z,y1,y2,y3[1:n] ; real x1, x2, x3, H; Boolean out;
+ integer k,j ; own real s,Hs ;
+ procedure RK1ST(x,y,h,xe,ye) ; real x,h,xe ; array y, ye;
+  comment : Dear god, what the hell?! It looks so strange! ;
+  begin
+   array w[1:n],a[1:5]; integer k,j ;
+   a[1]:=a[2]:=a[5]:= h/2 ; a[3] := a[4] := h ;
+   xe :=x;
+   for k := 1 step 1 until n do ye[k] := w[k]:= y[k];
+   for j:=1 step 1 until 4 do
+   begin
+    FKT(xe,w,n,z) ; xe:= x+a[j] ;
+    for k:= 1 step 1 until n do
+    begin
+     w[k]:=y[k]+a[j]*z[k] ; ye[k]:= ye[k]+a[j+1]*z[k]/3
+    end k
+   end j
+  end RK1ST ;
+  if fi then begin H:= xE-x ; s:=0 end else H:= Hs ; out := false;
+AA: if (x+2.01*H-xE>0)==(H>0) then 
+    begin Hs := H ; out := true ; H:= (xE-x)/2 end if ;
+    RK1ST(x,y,2*H,x1,y1) ;
+BB: RK1ST (x,y,H,x2,y2) ; RK1ST(x2,y2,H,x3,y3) ;
+    for k:= 1 step 1 until n do
+     if comp(y1[k],y3[k],eta)>eps then go to CC ;
+    comment : Are you real? Another comment? They're so looooooooooooooooooong~ ;
+     x:=x3 ; if out then go to DD;
+     for k := 1 step 1 until n do y[k] := y3[k] ;
+     if s= 5 then begin s:=0 ; H := 2*H end if ;
+     s := s+1 ; go to AA ;
+CC: H := 0.5*H ; out := false ; x1 := x2 ; 
+    for k:= 1 step 1 until n do y1[k] := y2[k] ; go to BB;
+DD: for k:=1 step 1 until n do yE[k]:=y3[k]
+end RK
