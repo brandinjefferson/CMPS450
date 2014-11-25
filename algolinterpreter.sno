@@ -165,7 +165,7 @@
 	SPECPART1 = *(X ((optspace *SPECPART) | ''))
 	SPECPART = SPECIFIER SPAN(' ') TYPELIST optspace ';' $ X EVAL(SPECPART1)
 	PROCHEAD = FUNCTCALL optspace ';' optspace (comment1 | '') optspace (VALUEPART | '') optspace (comment1 | '') optspace (SPECPART | '')
-	PROCBODY = BLOCK | STATEMENT $ output
+	PROCBODY = BLOCK | STATEMENT
 	PROCEDUREDEC = (types SPAN(' ') | '') 'procedure' SPAN(' ') PROCHEAD optspace (comment1 | '')  optspace PROCBODY
 ;*GENERAL DECLARATION
 	DECLARATION = PROCEDUREDEC | SWITCHDEC | ARRAYDEC | TYPEDEC
@@ -181,7 +181,6 @@ CHECK t = TRIM(PROGRAM)
 	ORIGSIZE = SIZE(t)	
 	program proceduredec . newprog =
 	newprog = TRIM(newprog)
-	output = newprog
 	IDENT(ORIGSIZE,SIZE(newprog))	:S(GOOD)F(BAD)
 	
 
