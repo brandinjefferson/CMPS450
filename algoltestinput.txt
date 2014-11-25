@@ -22,21 +22,16 @@ end
 integer procedure Step (u) ; real u;
 Step := if 0<-u and u<=1 then 1 else 0
 
---Problem on this one
 procedure euler (fct, sum, eps, tim) ; value eps, tim;
 integer tim; real procedure fct; real sum, eps;
 comment euler computes the sum of fct(i) for i from zero up to infinity by means of a suitably refined euler ;
 begin integer i,k,n,t; array m[0:15] ; real mn, mp, ds ;
 i:=n := t := 0 ; m[0] := fct(0) ; sum := m[0]/2;
 nextterm: i := i+1 ; mn:= fct(i) ;
-for k:=0 step 1 until n do	
-begin mp := (mn+m[k])/2 ; m[k] := mn ;
-mn := mp end means ;
-if (abs(mn) < abs(m[n])) and (n<15) then
-begin ds := mn/2; n:=n+1; m[n] := mn end accept
-else ds := mn;
+for k:=0 step 1 until n do begin mp := (mn+m[n])/2 ; m[k] := mn ; mn := mp end means ;
+if (abs(mn) < abs(m[n])) and (n<15) then begin ds := mn/2; n:=n+1; m[n] := mn end accept else ds := mn;
 sum := sum + ds ;
-if (abs(ds)<eps then t:= t+1 else t:=0;
+if abs(ds)<eps then t:= t+1 else t:=0;
 if t<tim then go to nextterm
 end euler
 

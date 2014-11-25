@@ -1,3 +1,7 @@
+;* Algol60 Programming Language Interpreter
+;* CMPS450
+;* Brandin Jefferson (bej0843)	
+	
 	&FULLSCAN = 1	
 	letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 	digits = '0123456789'
@@ -11,31 +15,36 @@
 	bracket = '(' | ')' | '[' | ']' | "'" | 'begin' | 'end'
 	types = 'real' | 'integer' | 'Boolean'
 	optspace = SPAN(' ') | ''
-;*Using the failure pattern, enforce some type rules
 
 ;*COMMENTS
+;* Each of the following three patterns serves to match one form of the comments; one for ';', 'begin', and 'end'. 
 	COMMENT1 = optspace 'comment' BREAK(';') ';' ;* ;
 	COMMENT2 = 'comment' BREAK(';') ';'  ;* begin
 	COMMENT3 = SPAN(' ') 'comment' (ARB 'end' | ARB ';' | ARB 'else') ;* end
 	COMMENT = COMMENT1 | COMMENT2 | COMMENT3
+	
 ;*IDENTIFIER/NORMAL VARIABLE
+;* Description: Represents an identifier. To enforce the rule of identifiers where they must all begin with a letter, the position of the cursor is attained first. This is followed by checking the character against the list of letters. If that succeeds, then the entire pattern will succeed, since nothing needs to come after.
 	ID1 = @N POS(*N) ANY(letters)
 	ID2 = SPAN(letters digits) | ''
 	IDENTIFIER = ID1 ID2
 ;*NUMBER
+;* Description: Matches both signed and unsigned numbers. The '+' and '-' that makes a number signed is optional, as well as a decimal point. If a decimal is found, however, it must be followed by at least one digit.
 	NUM1 = (ANY('+-') | '') SPAN(digits)
 	NUM2 = '.' SPAN(DIGITS)
 	NUMBER = NUM1 (NUM2 | '')
 	UNSIGNEDNUM = SPAN(DIGITS) ('.' SPAN(DIGITS) | '')
 ;*ARRAY
+;* Description: Matches subscripted variables. If an identifier is followed by a '[', then it is checked for a list of array items. These items can be either another subscripted variable or an arithmetic expression. 
 	SIMPLEVAR = IDENTIFIER
 	ARRAYITEM = *ARITHMETICEXP | *SUBSCRIPTEDVAR
 	SUBLIST1 = *(X ((optspace ',' optspace *SUBLIST2) | ''))
 	SUBLIST2 = ARRAYITEM $ X EVAL(SUBLIST1)
 	SUBLIST = '[' ARRAYITEM $ X EVAL(SUBLIST1) ']'
-	SUBSCRIPTEDVAR = SIMPLEVAR SUBLIST
+	SUBSCRIPTEDVAR = SIMPLEVAR optspace SUBLIST
 	VARIABLE = SUBSCRIPTEDVAR | SIMPLEVAR
 ;*FUNCTIONCALL
+;* Description: Matches function and procedure calls. An identifier followed by a '(' will then be checked for a list of parameters until a final ')' is found. If the identifier was not followed by a '(' then it the next thing to check for is a ';' or an 'end' to signify that this is a function. Otherwise, it will be recognized as an identifier by something else.
 	STRING = "'" SPAN(((LETTERS DIGITS) '<=>\+-*/^-,:.;_()[] ')) "'"
 	PARAM = *ARITHMETICEXP | SUBSCRIPTEDVAR | IDENTIFIER | STRING
 	PARAMDELIMITER = ',' | ')' optspace SPAN(LETTERS) optspace ':' optspace '('
@@ -44,6 +53,7 @@
 	PARAMPART =  '(' PARAMLIST ')' 
 	FUNCTCALL = IDENTIFIER optspace PARAMPART | IDENTIFIER (optspace ';' (COMMENT1 | '') | SPAN(' ') 'end' (COMMENT3  | ''))
 ;*BOOLEANEXP 
+;* Description: Matches boolean expressions. These include if clauses that are followed by simplified boolean expressions (those that are composed of nothing but primaries and operators) or just a simplified boolean expression. Arithmetic expressions are used here, so the operation has to be delayed.
 	RELATION = *ARITHMETICEXP (SPAN(' ') | '') relationalop (SPAN(' ') | '') *ARITHMETICEXP
 	BOOLPRIMARY = (RELATION | FUNCTCALL |  '(' *BOOLEANEXP ')' | logicalvalue | SUBSCRIPTEDVAR | SIMPLEVAR)
 	BOOLSECOND = ('not' SPAN(' ') | '') BOOLPRIMARY
@@ -58,6 +68,7 @@
 	ELSEBOOL = 'else' SPAN(' ') *BOOLEANEXP
 	BOOLEANEXP = *IFCLAUSE SPAN(' ') SIMPLEBOOL SPAN(' ') ELSEBOOL | SIMPLEBOOL
 ;*ARITHMETICEXP 
+;* Matches arithmetic expressions. These include if clause versions and simple arithmetic expressions composed of only functions, variables, and numbers. Grouping is allowed through parenthesis.
 	PRIMARY = FUNCTCALL | SUBSCRIPTEDVAR | IDENTIFIER | UNSIGNEDNUM | '(' *SIMPLEARITHEXP ')'
 	FACTOR1 = *(X ((optspace '^' optspace *FACTOR) | ''))
 	FACTOR = PRIMARY $ X EVAL(FACTOR1)
@@ -68,35 +79,40 @@
 	ARITHELSE = 'else' SPAN(' ') *ARITHMETICEXP
 	ARITHMETICEXP = *IFCLAUSE SPAN(' ') SIMPLEARITHEXP SPAN(' ') ARITHELSE | SIMPLEARITHEXP
 ;*DESIGNATIONEXP
+;* Description: Matches designation expressions. These are either subscripted variables, labels, or if clauses followed by a designation expression.
 	LABEL = IDENTIFIER | UNSIGNEDNUM
-	SWITCHDES = IDENTIFIER SUBLIST
-	SIMPLEDESEXP = SWITCHDES | LABEL | '(' *DESIGNEXP ')'
+	SIMPLEDESEXP = SUBSCRIPTEDVAR | LABEL | '(' *DESIGNEXP ')'
 	DESIGNELSE = 'else' SPAN(' ') *DESIGNEXP
 	DESIGNEXP = *IFCLAUSE SPAN(' ') SIMPLEDESEXP SPAN(' ') DESIGNELSE | SIMPLEDESEXP
 ;*GENERAL EXPRESSION
 	EXPRESSION = ARITHMETICEXP | BOOLEANEXP | DESIGNEXP
 ;*STATEMENTS -------------------------------------------------
 ;*ASSIGNMENT STATEMENT
+;* Description: Matches an assignment statement. This can be any number of left part expressions but must be ended with an arithmetic or boolean expression
 	LEFTPART = VARIABLE (SPAN(' ') | '') ':='
 	LEFTPARTLIST1 = *(X ((SPAN(' ') | '') *LEFTPARTLIST | ''))
 	LEFTPARTLIST = LEFTPART $ X EVAL(LEFTPARTLIST1)
 	ASSIGNSTATEMENT = LEFTPARTLIST (SPAN(' ') | '') (ARITHMETICEXP | BOOLEANEXP)
 ;*GO TO STATEMENT
+;* Description: Matches a go to statement.
 	GOTOSTATEMENT = 'go to' SPAN(' ') DESIGNEXP
 ;*DUMMY STATEMENT
+;* Description: Matches a dummy statement. 
 	DUMMYSTATEMENT = SPAN(' ') (';' | 'end')
 ;*COMPOUND STATEMENTS AND BLOCKS
+;* Description: One matches a compound statement and another matches a block statement.  
 	UNLABELBASICSTATEMENT = ASSIGNSTATEMENT | GOTOSTATEMENT | FUNCTCALL | DUMMYSTATEMENT 
 	MULTLABELS1 = *(X ((LABEL ':' optspace *MULTLABELS) | ''))
 	MULTLABELS = (LABEL ':' optspace $ X EVAL(MULTLABELS1) | '')
 	BASICSTAT =  MULTLABELS UNLABELBASICSTATEMENT
-	UNCONDSTAT =  *FORSTATEMENT | *COMPSTATEMENT | *BLOCK | BASICSTAT
+	UNCONDSTAT =  *COMPSTATEMENT | *BLOCK | *FORSTATEMENT | BASICSTAT
 	STATEMENT = UNCONDSTAT | *CONDSTAT
 	BEGINCOMMENT = COMMENT2 $ X EVAL(CTAILNEXT)
 	CTAILNEXT = *(X ((optspace *CTAIL) | ''))
-	;*CTAILEND = *(X ((SPAN(' ') IDENTIFIER SPAN(' ') *CTAIL) | ''))
+	CTAILEND1 = *(X (*CTAILEND | ''))
+	CTAILEND = optspace (';' | 'else' | 'end' $ X EVAL(CTAILEND1) | LABEL $ X EVAL(CTAILEND1) | '')
 	CTAIL = STATEMENT (optspace ';' $ X EVAL(CTAILNEXT) | SPAN(' ') 'end')
-	COMPOUNDTAIL = BEGINCOMMENT | CTAIL (SPAN(' ') LABEL | '')
+	COMPOUNDTAIL = BEGINCOMMENT | CTAIL CTAILEND
 	BLOCKHEAD1 = *(X ((optspace *BLOCKHEAD2) | ''))
 	BLOCKHEAD2 = *DECLARATION optspace ';' $ X EVAL(BLOCKHEAD1)
 	BLOCKHEAD = 'begin' SPAN(' ') ((*DECLARATION optspace ';') | COMMENT2) $ X EVAL(BLOCKHEAD1)
@@ -105,11 +121,13 @@
 	COMPSTATEMENT = MULTLABELS UNLABELCOM
 	BLOCK = MULTLABELS UNLABELBLOCK 
 ;*CONDITIONAL STATEMENT
+;* Description: Matches a conditional statement. This is just an if clause followed by an unconditional statement (compound statement, a block, a for statement, an assign statement, a go to statement, a function call, or a dummy statement) that can also be followed by an else with a statement.
 	IFCLAUSE = 'if' SPAN(' ') BOOLEANEXP SPAN(' ') 'then'
 	IFSTATEMENT = MULTLABELS IFCLAUSE SPAN(' ') UNCONDSTAT
 	CONDELSE = 'else' SPAN(' ') STATEMENT
 	CONDSTAT = IFSTATEMENT span(' ') condelse | IFSTATEMENT 
 ;*FOR STATEMENT
+;* Description: Matches a for statement. This includes any variations for statements are capable of taking.
 	FORLISTELEMENT1 = ARITHMETICEXP SPAN(' ') 'step' SPAN(' ') ARITHMETICEXP SPAN(' ') 'until' SPAN(' ') ARITHMETICEXP
 	FORLISTELEMENT2 = ARITHMETICEXP SPAN(' ') 'while' SPAN(' ') BOOLEANEXP
 	FORLISTELEMENT = FORLISTELEMENT2 | FORLISTELEMENT1 | ARITHMETICEXP 
@@ -119,11 +137,13 @@
 	FORSTATEMENT = MULTLABELS FORCLAUSE SPAN(' ') STATEMENT
 ;*DECLARATIONS-------------------------------------------	
 ;*TYPE DECLARATIONS
+;* Description: Matches type declarations. These take a type and, after ensuring there is a space, get however many identifiers may follow. 
 	TYPELIST1 = *(X ((optspace ',' optspace *TYPELIST) | ''))
 	TYPELIST = IDENTIFIER $ X EVAL(TYPELIST1)
 	LOCALTYPE = ('own' SPAN(' ') | '') types
 	TYPEDEC = LOCALTYPE SPAN(' ') TYPELIST
 ;*ARRAY DECLARATIONS
+;* Description: Matches array declarations. Does not accept actual arrays, but those with bounds, etc.
 	BOUNDPAIR = ARITHMETICEXP ':' ARITHMETICEXP
 	BOUNDPAIRLIST1 = *(X ((optspace ',' optspace *BOUNDPAIR) | ''))
 	BOUNDPAIRLIST = BOUNDPAIR $ X EVAL(BOUNDPAIRLIST1)
@@ -133,10 +153,12 @@
 	ARRAYLIST = ARRAYSEG $ X EVAL(ARRAYLIST1)
 	ARRAYDEC = (LOCALTYPE SPAN(' ') | '') 'array' SPAN(' ') ARRAYLIST
 ;*SWITCH DECLARATIONS
+;* Description: Matches switch declarations. 
 	SWITCHLIST1 = *(X ((optspace ',' optspace *SWITCHLIST) | ''))
 	SWITCHLIST = DESIGNEXP $ X EVAL(SWITCHLIST1)
 	SWITCHDEC = 'switch' SPAN(' ') IDENTIFIER optspace ':=' optspace SWITCHLIST
 ;*PROCEDURE DECLARATIONS
+;* Description: Matches procedure declarations. Since the code following a procedure must be a block, it is used to substitute the document's <code> tag.
 	FORMALPARAMPART = PARAMPART | ''
 	VALUEPART = 'value' SPAN(' ') TYPELIST optspace ';'
 	SPECIFIER = types (SPAN(' ') ('array' | 'procedure') | '') | 'string' | 'label' | 'switch' | 'procedure' | 'array'
@@ -152,14 +174,11 @@ TEST	PROGRAM = PROGRAM ' '
 	originalline = input	:F(CHECK)
 	PROGRAM = PROGRAM ORIGINALLINE	:(TEST)
 	
-CHECK	t = TRIM(PROGRAM)
+CHECK t = TRIM(PROGRAM)
 	t ' ' =
 	ORIGSIZE = SIZE(t)	
-	program proceduredec . newprog =	
-	output = ORIGSIZE
-	output = t
-	output = SIZE(newprog)
-	output = newprog	
+	program proceduredec . newprog =
+	newprog = TRIM(newprog)
 	IDENT(ORIGSIZE,SIZE(newprog))	:S(GOOD)F(BAD)
 	
 
