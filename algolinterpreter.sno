@@ -51,7 +51,7 @@
 	PARAMLIST1 = *(X ((optspace PARAMDELIMITER optspace *PARAMLIST) | ''))
 	PARAMLIST = PARAM $ X EVAL(PARAMLIST1)
 	PARAMPART =  '(' PARAMLIST ')' 
-	FUNCTCALL = IDENTIFIER optspace PARAMPART | IDENTIFIER (optspace ';' (COMMENT1 | '') | SPAN(' ') 'end' (COMMENT3  | ''))
+	FUNCTCALL = IDENTIFIER optspace PARAMPART | IDENTIFIER (optspace ';' (COMMENT1 | '') | SPAN(' ') 'end' (COMMENT3  | '') | '')
 ;*BOOLEANEXP 
 ;* Description: Matches boolean expressions. These include if clauses that are followed by simplified boolean expressions (those that are composed of nothing but primaries and operators) or just a simplified boolean expression. Arithmetic expressions are used here, so the operation has to be delayed.
 	RELATION = *ARITHMETICEXP (SPAN(' ') | '') relationalop (SPAN(' ') | '') *ARITHMETICEXP
@@ -165,20 +165,23 @@
 	SPECPART1 = *(X ((optspace *SPECPART) | ''))
 	SPECPART = SPECIFIER SPAN(' ') TYPELIST optspace ';' $ X EVAL(SPECPART1)
 	PROCHEAD = FUNCTCALL optspace ';' optspace (comment1 | '') optspace (VALUEPART | '') optspace (comment1 | '') optspace (SPECPART | '')
-	PROCBODY = BLOCK | STATEMENT
+	PROCBODY = BLOCK | STATEMENT $ output
 	PROCEDUREDEC = (types SPAN(' ') | '') 'procedure' SPAN(' ') PROCHEAD optspace (comment1 | '')  optspace PROCBODY
 ;*GENERAL DECLARATION
 	DECLARATION = PROCEDUREDEC | SWITCHDEC | ARRAYDEC | TYPEDEC
 
+;* Description: Gathers the program from the input and adds it to a variable to be checked later.
 TEST	PROGRAM = PROGRAM ' '
 	originalline = input	:F(CHECK)
 	PROGRAM = PROGRAM ORIGINALLINE	:(TEST)
-	
+
+;* Description: Checks if the program is correctly formatted. Returns a 'Yes' if it is and a 'No' if not.
 CHECK t = TRIM(PROGRAM)
 	t ' ' =
 	ORIGSIZE = SIZE(t)	
 	program proceduredec . newprog =
 	newprog = TRIM(newprog)
+	output = newprog
 	IDENT(ORIGSIZE,SIZE(newprog))	:S(GOOD)F(BAD)
 	
 
