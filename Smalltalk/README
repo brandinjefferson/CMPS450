@@ -1,0 +1,57 @@
+This is Little Smalltalk version 3 for an IBM PC.
+
+The source is by Tim Budd. The document reformatting and makefile
+hacking is by Daniel Simmons.  The executables were compiled with
+Borland C++.  I took the source code distribution straight from cs.orst.edu,
+sent the two documentation files through nroff -a -ms > *.txt, loaded the
+text files into Wordperfect and edited them to print nicely on my Oki 390,
+hacked the makefile (assumes borland c++ is in the directory c:\cpp, and
+turbo c ver. 2.0 is in c:\turboc), and compiled the things.
+
+Everywhere that I modified a file, the old file is present as well with the
+same name and the extension ".old"  (That includes this readme file.)  I
+seem to have lost the original documentation files, and I'm too lazy to go
+ftp them again.  But, everything else should be complete.
+
+To make the source yourself with Borland C++, switch into the directory:
+~\src and type "make bc++"  Alternatively, you can type "make ibmturboc" if
+you have Turbo C ver. 2.0 or something like that.  If you really want this
+to work on some other system, you probably have to edit the files.  I would
+recommend getting the stuff straight from the horses mouth at Oregon State.
+(ftp cs.orst.edu, directory: pub/budd)
+
+I'm distributing this simply because I was very dissapointed when I got
+the little smalltalk from wuarchive in ~\mirrors\msdos\smalltalk and it
+wouldn't run on my system.  (I still haven't bothered to take the time and
+figure out why.)  This is version 3, which I gather is considerably improved
+in the area of portability over version 1 (which I believe is what is at
+wuarchive).  So, hopefully this will work for others.
+
+
+Daniel Simmons
+
+dsimmons@cs.cornell.edu
+simmonsd@csc.isu.edu
+compuserve: <some id I can't remember, because I never use it anymore...>
+
+2301 Diane Lane
+Pocatello, Idaho  83201
+
+(208) 237-5709
+
+
+
+NOTE: This code was put in the public domain by the author Tim Budd.  I
+have made no real contribution to the code, and I actually have not used
+it much yet.  Send your questions to him (or me, but I probably can't
+answer them), or better yet post them on Comp.Lang.Smalltalk.  I make
+no guarantee or any of that jazz.  If something goes wrong, you have my
+symphathy, but it's your problem.
+
+
+September 14, 1991
+
+
+P.S.  Always a handy piece of information: to exit the little smalltalk
+      system, type: ^Z (control-Z which is the DOS end-of-file char).
+
